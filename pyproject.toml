@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qtl_control"
+authors = [
+    {name = "Jyrgen Luus", email = "jyrgen.luus@gmail.com"},
+]
+description = "TODO"
+readme = "README.rst"
+requires-python = ">=3.12"
+keywords = []
+license = {text = "BSD-3-Clause"}
+classifiers = []
+dependencies = [
+    "pyyaml",
+    "pytest"
+]
+dynamic = ["version"]

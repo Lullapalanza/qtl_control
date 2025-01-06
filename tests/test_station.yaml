@@ -1,0 +1,16 @@
+ControllerModules:
+  MockModule: qtl_control.controller_module
+
+controllers:
+  hw_controller_0:
+    type: MockHWController
+    driver:
+      type: MockDriver
+
+  abstract_controller_0:
+    type: MockController
+
+  combined_controller_0:
+    type: MockCombinedController
+    controller_0: hw_controller_0
+    controller_1: abstract_controller_0

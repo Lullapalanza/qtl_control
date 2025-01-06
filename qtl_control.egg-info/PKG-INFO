@@ -1,0 +1,13 @@
+Metadata-Version: 2.1
+Name: qtl_control
+Version: 0.0.0
+Summary: TODO
+Author-email: Jyrgen Luus <jyrgen.luus@gmail.com>
+License: BSD-3-Clause
+Requires-Python: >=3.12
+Description-Content-Type: text/x-rst
+Requires-Dist: pyyaml
+Requires-Dist: pytest
+
+Package to control instruments for qtl measurements, should enable all combinations and setups.
+Independent of what platform or sample is used
