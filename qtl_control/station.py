@@ -1,6 +1,7 @@
 """
 Defined station which does station stuff based on a configuriation. Collects together some controller modules
 """
+
 import yaml
 import importlib
 
@@ -20,30 +21,33 @@ def generate_modules(module_data):
 
     return modules
 
-def get_controller(modules, controller_name, values, existing_controllers, controller_refrences):
+
+def get_controller(
+    modules, controller_name, values, existing_controllers, controller_refrences
+):
     controller_type = values.pop("type")
     for cm in modules:
         if controller_type in cm.module_controllers.keys():
             # Controller is with this module
             for key, value in values.items():
-                if type(value) != str: # If str might point to a different controller
+                if type(value) != str:  # If str might point to a different controller
                     continue
                 if value in existing_controllers.keys():
-                    values[key] = existing_controllers.pop(value) # Existing controller ownership is given to new ct
-                
+                    values[key] = existing_controllers.pop(
+                        value
+                    )  # Existing controller ownership is given to new ct
+
                 # elif value in controller_refrences.keys():
                 #     controller_refrences[key] = controller_refrences[value] # Existing controller stays the same, only the ref is given to new ct
 
-            
             new_controller = cm.add_controller(
-                controller_type,
-                controller_name,
-                **values
+                controller_type, controller_name, **values
             )
 
-            return {new_controller.label: new_controller} 
+            return {new_controller.label: new_controller}
 
     raise UndefinedController(f"Undefined {controller_name}")
+
 
 def generate_controllers(config_data):
     # Get modules
@@ -51,19 +55,26 @@ def generate_controllers(config_data):
     controller_modules = generate_modules(modules)
 
     new_tree = StationNode("root")
-    new_controllers = {}
-    controller_refrences = {}
+    new_controllers = dict()
+    controller_refrences = dict()
 
     for controller_name, values in config_data.get("controllers").items():
         new_controllers.update(
-            get_controller(controller_modules, controller_name, values, new_controllers, controller_refrences)
+            get_controller(
+                controller_modules,
+                controller_name,
+                values,
+                new_controllers,
+                controller_refrences,
+            )
         )
-    
-    new_tree.update_subnodes(
-        list(new_controllers.values())
-    )
+
+    print(new_controllers)
+
+    new_tree.update_subnodes(list(new_controllers.values()))
 
     return new_tree, controller_modules
+
 
 def parse_config_to_station(config_file):
     with open(config_file, "r") as f:
@@ -72,6 +83,7 @@ def parse_config_to_station(config_file):
     ct, ct_modules = generate_controllers(config_data)
 
     return Station(ct, ct_modules)
+
 
 class Station:
     def __init__(self, controller_tree, controller_modules):
@@ -87,12 +99,9 @@ class Station:
         # Return config if exists
         if configuration_name in self._configuration_cache.keys():
             return configuration_name, self._configuration_cache[configuration_name]
-        
+
         # Get a new config
-        new_config = self._controller_root.get_new_configuration()
+        new_config = self._controller_root.get_current_configuration()
         self._configuration_cache[configuration_name] = new_config
         self._current_configuration = configuration_name
         return configuration_name, new_config
-    
-    def get_settings(self) -> StationNode:
-        return self._controller_root

@@ -15,6 +15,7 @@ license = {text = "BSD-3-Clause"}
 classifiers = []
 dependencies = [
     "pyyaml",
-    "pytest"
+    "pytest",
+    "qm-qua",
 ]
 dynamic = ["version"]
