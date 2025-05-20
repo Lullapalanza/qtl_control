@@ -4,8 +4,8 @@ ControllerModules:
 controllers:
   hw_controller_0:
     type: MockHWController
-    driver:
-      type: MockDriver
+    host: 10.59.100.100
+    port: 0000
 
   abstract_controller_0:
     type: MockController

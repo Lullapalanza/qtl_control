@@ -13,11 +13,11 @@ class UndefinedController(Exception):
 
 
 def generate_modules(module_data):
-    modules = []
+    modules = {}
     for module_name, path in module_data.items():
         ct_module_import = importlib.import_module(path)
         ct_module = getattr(ct_module_import, module_name)
-        modules.append(ct_module(modules))
+        modules.update({module_name: ct_module(modules)})
 
     return modules
 
@@ -26,7 +26,7 @@ def get_controller(
     modules, controller_name, values, existing_controllers, controller_refrences
 ):
     controller_type = values.pop("type")
-    for cm in modules:
+    for cm in modules.values():
         if controller_type in cm.module_controllers.keys():
             # Controller is with this module
             for key, value in values.items():
@@ -69,8 +69,6 @@ def generate_controllers(config_data):
             )
         )
 
-    print(new_controllers)
-
     new_tree.update_subnodes(list(new_controllers.values()))
 
     return new_tree, controller_modules
@@ -90,10 +88,10 @@ class Station:
         self._controller_root: StationNode = controller_tree
         self._controller_modules = controller_modules
         self._configuration_cache = {}
-        self._current_configuration = None
+        self._current_configuration_name = None
 
     def get_module_names(self):
-        return [ct_module.label for ct_module in self._controller_modules]
+        return self._controller_modules.keys()
 
     def new_configuration(self, configuration_name):
         # Return config if exists
@@ -103,5 +101,12 @@ class Station:
         # Get a new config
         new_config = self._controller_root.get_current_configuration()
         self._configuration_cache[configuration_name] = new_config
-        self._current_configuration = configuration_name
+        self._current_configuration_name = configuration_name
         return configuration_name, new_config
+    
+    def get_configuration(self):
+        return self._configuration_cache[self._current_configuration_name]
+
+    def change_settings(self, new_settings_and_values: dict):
+        for setting_label, value in new_settings_and_values.items():
+            self._controller_root.change_setting(setting_label, value)

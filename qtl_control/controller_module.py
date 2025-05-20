@@ -1,17 +1,13 @@
 class Setting:
     """
-    A setting that has a label, value, setter, getter. A fundamental unit of the state
+    A setting that has a label for tracking,
+    value, setter, getter. A fundamental unit of the state
     """
 
-    def __init__(self, label, default_value=None, setter=None, getter=None):
-        self._label = label
-        self._value = default_value
+    def __init__(self, init_value=None, setter=None, getter=None):
+        self._value = init_value
         self._setter = setter
         self._getter = getter
-
-    @property
-    def label(self):
-        return self._label
 
     @property
     def value(self):
@@ -27,22 +23,32 @@ class Setting:
 class StationNode:
     def __init__(self, label):
         self._label = label
-        self._subnodes = []  # Sudnodes
-        self._settings = []  # Settings belonging to Node
+        self._subnodes = {}  # Sudnodes
+        self._settings = {}  # Settings belonging to Node
 
     @property
     def label(self):
         return self._label
 
     def update_subnodes(self, new_nodes):
-        self._subnodes = self._subnodes + new_nodes
-
+        for node in new_nodes:
+            self._subnodes.update({node.label: node})
+    
     def update_settings(self, new_settings):
-        self._settings = self._settings + new_settings
+        self._settings.update(new_settings)
+
+    def change_setting(self, label, val):
+        if label in self._settings.keys():
+            print(self._settings[label])
+            self._settings[label].value = val
+        else:
+            sublabel, remaining = label.split(".", 1)
+            if sublabel in self._subnodes.keys():
+                self._subnodes[sublabel].change_setting(remaining, val)
 
     def get_current_configuration(self) -> dict:
-        settings = {st.label: st.value for st in self._settings}
-        for sn in self._subnodes:
+        settings = {label: st.value for label, st in self._settings.items()}
+        for sn in self._subnodes.values():
             settings.update(sn.get_current_configuration())
         return {self.label: settings}
 
@@ -92,16 +98,22 @@ class MockController(StationNode):
 
 
 class MockHWController(StationNode):
-    def __init__(self, label, driver):
+    def __init__(self, label, host, port):
         super().__init__(label)
-        self._driver = driver
+
+        self.update_settings({
+            "amplitude": Setting(0, setter=lambda x: print(f"setting MockHW amplitude to {x}"), getter=None),
+        })
 
 
 class MockCombinedController(StationNode):
     def __init__(self, label, controller_0, controller_1):
         super().__init__(label)
-        self._ct0 = controller_0
-        self._ct1 = controller_1
+
+        self.update_subnodes([
+            controller_0,
+            controller_1
+        ])
 
 
 class MockModule(ControllerModule):
