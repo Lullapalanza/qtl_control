@@ -82,7 +82,6 @@ def parse_config_to_station(config_file):
 
     return Station(ct, ct_modules)
 
-
 class Station:
     def __init__(self, controller_tree, controller_modules):
         self._controller_root: StationNode = controller_tree
@@ -92,6 +91,12 @@ class Station:
 
     def get_module_names(self):
         return self._controller_modules.keys()
+
+    def get_module_methods(self, module_name):
+        return self._controller_modules[module_name].module_methods
+
+    def run_module_method(self, module_name, method_name, *args, **kwargs):
+        return getattr(self._controller_modules[module_name], method_name)(*args, **kwargs)
 
     def new_configuration(self, configuration_name):
         # Return config if exists
@@ -107,6 +112,47 @@ class Station:
     def get_configuration(self):
         return self._configuration_cache[self._current_configuration_name]
 
-    def change_settings(self, new_settings_and_values: dict):
+
+    # TODO: Make this infinitely nicer
+    def force_update_settings_from_cache(self, settings_to_update):
+        for setting in settings_to_update:
+            root = self._configuration_cache[self._current_configuration_name]["root"]
+            remaining = setting
+            while True:
+                if "." not in remaining:
+                    self._controller_root.change_setting(setting, root[remaining])
+                    return
+                next_label, remaining = remaining.split(".", 1)
+                root = root[next_label]
+
+    def change_settings(self, new_settings_and_values: dict, update_cache=True):
         for setting_label, value in new_settings_and_values.items():
+            # Change setting
             self._controller_root.change_setting(setting_label, value)
+
+            # Update cache, also validate?
+            # TODO: A interface for the config?
+            if update_cache:
+                root = self._configuration_cache[self._current_configuration_name]["root"]
+                remaining = setting_label
+                while True:
+                    if "." not in remaining:
+                        root[remaining] = value
+                        return
+                    next_label, remaining = remaining.split(".", 1)
+                    root = root[next_label]
+
+    def external_sweeps(self, list_of_new_settings_and_values, module_name, module_method, *args, **kwargs):
+        results = []
+        settings_changed = set()
+        for settings_and_values in list_of_new_settings_and_values:
+            # Change settings temporarily? Keep list of settings to change back later
+            self.change_settings(settings_and_values, update_cache=False)
+            settings_changed.update(settings_and_values.keys())
+            results.append(
+                self.run_module_method(module_name, module_method, *args, **kwargs)
+            )
+        
+        self.force_update_settings_from_cache(settings_changed)
+
+        return results

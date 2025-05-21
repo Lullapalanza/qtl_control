@@ -1,5 +1,6 @@
 ControllerModules:
   MockModule: qtl_control.controller_module
+  RandSModule: qtl_control.rands_vna
 
 controllers:
   hw_controller_0:
@@ -14,3 +15,8 @@ controllers:
     type: MockCombinedController
     controller_0: hw_controller_0
     controller_1: abstract_controller_0
+
+  vna_controller:
+    type: ZNBMock
+    host: 10.10
+    port: 0000
