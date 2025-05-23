@@ -37,14 +37,16 @@ def get_controller(
                         value
                     )  # Existing controller ownership is given to new ct
 
-                # elif value in controller_refrences.keys():
-                #     controller_refrences[key] = controller_refrences[value] # Existing controller stays the same, only the ref is given to new ct
+                elif value in controller_refrences.keys():
+                    controller_refrences[key] = controller_refrences[value] # Existing controller stays the same, only the ref is given to new ct
 
             new_controller = cm.add_controller(
                 controller_type, controller_name, **values
             )
 
-            return {new_controller.label: new_controller}
+            existing_controllers.update({new_controller.label: new_controller})
+            controller_refrences.update({f"ref_{new_controller.label}": new_controller})
+            return
 
     raise UndefinedController(f"Undefined {controller_name}")
 
@@ -59,16 +61,13 @@ def generate_controllers(config_data):
     controller_refrences = dict()
 
     for controller_name, values in config_data.get("controllers").items():
-        new_controllers.update(
-            get_controller(
-                controller_modules,
-                controller_name,
-                values,
-                new_controllers,
-                controller_refrences,
-            )
+        get_controller(
+            controller_modules,
+            controller_name,
+            values,
+            new_controllers,
+            controller_refrences,
         )
-
     new_tree.update_subnodes(list(new_controllers.values()))
 
     return new_tree, controller_modules

@@ -30,16 +30,13 @@ class FileSystemDB:
                 f.write(str(self.current_id))
             print(f"Created new DB")
 
-    def save_data(self, experiment_name, data, extra_axes):
+    def save_data(self, experiment_name, data):
+        # Save xarray dataset as '.nc'
         self.current_id += 1
-        filename = f"{self.current_id}_{experiment_name}_{datetime.today().strftime(r'%Y_%m_%d')}.json"
+        filename = f"{self.current_id}_{experiment_name}_{datetime.today().strftime(r'%Y_%m_%d')}.nc"
         with open(self.db_path + "/id.txt", "w+") as f:
             f.write(str(self.current_id))
         
-        with open(f"{self.db_path}/{filename}", "w") as f:
-            f.write(json.dumps({
-                "data": data,
-                "extra_axes": extra_axes
-            }, cls=ComplexJsonEncoder, indent=4))
+        data.to_netcdf(f"{self.db_path}/{filename}", auto_complex=True)
 
         return self.current_id

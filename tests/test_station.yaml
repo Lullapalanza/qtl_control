@@ -1,6 +1,8 @@
 ControllerModules:
   MockModule: qtl_control.controller_module
   RandSModule: qtl_control.rands_vna
+  PulsedQubits: qtl_control.qubit_controllers
+  QuantumMachinesModule: qtl_control.qtl_qm.qm_controllers
 
 controllers:
   hw_controller_0:
@@ -20,3 +22,16 @@ controllers:
     type: ZNBMock
     host: 10.10
     port: 0000
+
+  qm_manager:
+    type: QMManager
+    host:
+    port:
+    cluster_name:
+    octave_lable:
+    octave_ip:
+
+  qubit_0:
+    type: TransmonQubit
+    # drive_channel: null
+    # readout_channel: null

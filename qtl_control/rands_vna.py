@@ -13,9 +13,11 @@ class ZNBVNA(StationNode):
         self.port = port
 
         self.update_settings({
-            "span": Setting(...),
             "center_frequency": Setting(...),
-            "power": Setting(...)
+            "span": Setting(...),
+            "Npoints": Setting(...),
+            "power": Setting(...),
+            "RBW": Setting(...),
         })
 
     def get_frequency_trace(self):
@@ -44,8 +46,8 @@ class ZNBVNAMock(StationNode):
         """
         Return trace of frequency vs s-parameter
         """
-        frequency = [6e9, 6.1e9, 6.2e9]
-        Sparam = [3+0.j, 2+0.1j, 5-0.7j]
+        frequency = [6e9, 6.1e9, 6.2e9, 6.3e9]
+        Sparam = [3+0.j, 2+0.1j, 5-0.7j, 1]
         return frequency, Sparam
 
 
