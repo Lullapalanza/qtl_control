@@ -17,6 +17,8 @@ dependencies = [
     "pyyaml",
     "pytest",
     "qm-qua",
+    "qualang-tools",
     "matplotlib",
+    "xarray",
 ]
 dynamic = ["version"]

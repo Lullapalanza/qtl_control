@@ -2,8 +2,11 @@ import matplotlib
 import matplotlib.pyplot as plt
 import xarray as xr
 import numpy as np
-from qm.qua import *
 
+from qm.qua import *
+from qualang_tools.loops import from_array
+
+from qtl_control.qtl_qm.utils import qubit_LO, u
 
 class QTLExperiment:
     """
@@ -85,8 +88,6 @@ class RabiChevron(QTLExperiment):
 
     def run(self, qubit, frequency_range, duration_range):
         N_avg = 1024
-        qubit_IF = 200e6
-        qubit_LO = 6.3e9
         thermalization_time = 100e-6
         # === START QM program ===
         with program() as rabi_chevron:
@@ -100,9 +101,9 @@ class RabiChevron(QTLExperiment):
             Q_stream = declare_stream()
             n_stream = declare_stream()
 
-            with for (n, 0, n < N_avg, n+1):
-                with for (*from_array(t, duration_range)):
-                    with for(*from_array(f, frequency_range)):
+            with for_(n, 0, n < N_avg, n+1):
+                with for_(*from_array(t, duration_range)):
+                    with for_(*from_array(f, frequency_range)):
                         update_frequency(qubit, f - qubit_LO)
 
                         play("x180", qubit, duration=t)
@@ -128,10 +129,6 @@ class RabiChevron(QTLExperiment):
                 I_stream.buffer(len(frequency_range)).buffer(len(duration_range)).average().save("I")
                 Q_stream.buffer(len(frequency_range)).buffer(len(duration_range)).average().save("Q")
                 n_stream.save("iteration")
-
-
-
-
         # === END QM program ===
 
         # === SEND PROGRAM ===
