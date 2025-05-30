@@ -30,13 +30,16 @@ class QMManager(StationNode):
         # self.octave_config = QmOctaveConfig()
         # self.octave_config.add_device_info(octave_label, octave_ip, 80)
         # self.octave_label = octave_label
+        from qm.octave import QmOctaveConfig
 
+        octave_config = QmOctaveConfig()
+        octave_config.set_calibration_db("")
         self.qm_manager = QuantumMachinesManager(
-            host=host, port=port, cluster_name=cluster_name
+            host=host, port=port, cluster_name=cluster_name, octave=octave_config
         )
 
-        config = get_config(octave_label=octave_label)
-        self.qm = self.qm_manager.open(config)
+        self.config = get_config()
+        self.qm = self.qm_manager.open_qm(self.config)
 
 
         def exit_handler():
@@ -46,6 +49,9 @@ class QMManager(StationNode):
         atexit.register(exit_handler)
 
 
+    def reload_config(self, new_lo_frequency):
+        self.qm.close()
+        self.qm = self.qm_manager.open_qm(get_config(new_lo_frequency))
 
     def get_channel(self):
         pass

@@ -6,15 +6,27 @@ from qualang_tools.config.waveform_tools import drag_gaussian_pulse_waveforms
 from qualang_tools.units import unit
 
 u = unit(coerce_to_integer=True)
-READOUT_LEN = 1000
-qubit_LO = 4.3e9
+READOUT_LEN = 2000
+
+ro_LO = 6.9e9
+# ro_f = 6.985e9 # Maybe Q4
+# ro_f = 7.1432e9 # Or maybe Q4
+ro_f = 6.7028e9 # QB6?
+# ro_f = 6.82394e9
+# ro_f = 5.767315e9 # Q2
+
+resonator_IF = ro_f - ro_LO
+
+qubit_LO = 4.8e9 # 5.2e9 + 0.00e9# 4.8e9
+qubit_eg = 4.615e9 
+# qubit_eg = 3.93875e9 QB2
+qubit_IF = qubit_eg - qubit_LO
 
 
-def get_config(octave_label):
-    resonator_LO = 6e9
-    resonator_IF = -200e6
-    qubit_IF = -150e6
-    time_of_flight = 0
+def get_config(readout_LO_frequency=ro_LO, readout_amp=0.01):
+    resonator_LO = readout_LO_frequency
+    time_of_flight = 200
+    octave_label = "oct1"
 
     OCTAVE_CONFIG = {
         octave_label: {
@@ -23,9 +35,14 @@ def get_config(octave_label):
                 1: {
                     "LO_frequency": resonator_LO,
                     "LO_source": "internal",
-                    "gain": 0, # -20 to 20 in 0.5 steps
+                    "gain": -20, # -20 to 20 in 0.5 steps
                     "output_mode": "always_on",
-                    "input_attenuators": "OFF"
+                },
+                5: {
+                    "LO_frequency": qubit_LO,
+                    "LO_source": "internal",
+                    "output_mode": "always_on",
+                    "gain": -15,
                 },
                 # 2: {...},
                 # 3: {...},
@@ -34,11 +51,8 @@ def get_config(octave_label):
             },
             "RF_inputs": {
                 1: {
-                    "RF_source": "RF_in",
                     "LO_frequency": resonator_LO, #
                     "LO_source": "internal", #
-                    "IF_mode_I": "direct",  #
-                    "IF_mode_Q": "direct"            
                 },
                 # 2: {...}
             }
@@ -50,36 +64,31 @@ def get_config(octave_label):
             "analog_outputs": {
                 1: {"offset": 0.0},  # I resonator
                 2: {"offset": 0.0},  # Q resonators
-                3: {"offset": 0.0},  # I qubit
-                4: {"offset": 0.0},  # Q qubit
-                5: {"offset": 0.0},  # flux line?
+                9: {"offset": 0.0},  # I qubit
+                10: {"offset": 0.0},  # Q qubit
+                # 5: {"offset": 0.0},  # flux line?
             },
             "digital_outputs": {
                 1: {},
             },
             "analog_inputs": {
-                1: {"offset": 0.0, "gain_db": 0},  # I from down-conversion
-                2: {"offset": 0.0, "gain_db": 0},  # Q from down-conversion
+                1: {"offset": 0.0, "gain_db": 20},  # I from down-conversion
+                2: {"offset": 0.0, "gain_db": 20},  # Q from down-conversion
             },
         },
     }
 
     ELEMENTS_CONFIG = {
         "qubit": {
-            "mixInputs": {
-                "I": ("con1", 3),
-                "Q": ("con1", 4),
-                "lo_frequency": qubit_LO,
-                "mixer": "mixer_qubit",
-            },
+            "RF_inputs": {"port": ("oct1", 5)},
             "intermediate_frequency": qubit_IF,
             "operations": {
                 "cw": "const_pulse",
                 "saturation": "saturation_pulse",
                 "pi": "pi_pulse",
                 "pi_half": "pi_half_pulse",
-                "x180": "x180_pulse",
                 "x90": "x90_pulse",
+                "x180": "x180_pulse",
                 "-x90": "-x90_pulse",
                 "y90": "y90_pulse",
                 "y180": "y180_pulse",
@@ -87,54 +96,49 @@ def get_config(octave_label):
             },
         },
         "resonator": {
-            "mixInputs": {
-                "I": ("con1", 1),
-                "Q": ("con1", 2),
-                "lo_frequency": resonator_LO,
-                "mixer": "mixer_resonator",
-            },
+            "RF_inputs": {"port": ("oct1", 1)},
+            "RF_outputs": {"port": ("oct1", 1)},
             "intermediate_frequency": resonator_IF,
             "operations": {
                 "cw": "const_pulse",
                 "readout": "readout_pulse",
             },
-            "outputs": {
-                "out1": ("con1", 1),
-                "out2": ("con1", 2),
-            },
             "time_of_flight": time_of_flight,
             "smearing": 0,
         },
-        "flux_line": {
-            "singleInput": {
-                "port": ("con1", 5),
-            },
-            "operations": {
-                "const": "const_flux_pulse",
-            },
-        },
+        # "flux_line": {
+        #     "singleInput": {
+        #         "port": ("con1", 5),
+        #     },
+        #     "operations": {
+        #         "const": "const_flux_pulse",
+        #     },
+        # },
     }
 
-    READOUT_AMP = 0.01
+    READOUT_AMP = readout_amp
 
-    CONST_LEN = 100
-    CONST_FLUX_LEN = 100
-    SATURATION_LEN = 100
-    SQ_PULSE_LEN = 100
+    CONST_LEN = 300
+    CONST_FLUX_LEN = 300
+    SATURATION_LEN = 1000
+    SQ_PULSE_LEN = 300
 
-    CONST_AMP = 0.1
-    SATURATION_AMP = 0.1
-    PI_AMP = 0.5
+    CONST_AMP = 0.4
+    SATURATION_AMP = 0.4
+    PI_AMP = 0.4
     FLUX_AMP = 0.001
 
-    GDRAG_SIGMA = SQ_PULSE_LEN / 5
+    GDRAG_SIGMA = SQ_PULSE_LEN / 4
     GDRAG_COEFF = 0
     GDRAG_ALPHA = -200 * u.MHz
     GDRAG_STARK = 0
     SQ_gaussian, SQ_gaus_der = np.array(
-        drag_gaussian_pulse_waveforms(1, SQ_PULSE_LEN, GDRAG_SIGMA, GDRAG_COEFF, GDRAG_ALPHA, GDRAG_STARK)
+        drag_gaussian_pulse_waveforms(PI_AMP, SQ_PULSE_LEN, GDRAG_SIGMA, GDRAG_COEFF, GDRAG_ALPHA, GDRAG_STARK)
     )
-
+    
+    import matplotlib.pyplot as plt
+    plt.plot(SQ_gaussian)
+    plt.show()
     
 
 
@@ -199,7 +203,7 @@ def get_config(octave_label):
                 "length": SQ_PULSE_LEN,
                 "waveforms": {
                     "I": "pi_wf",
-                    "Q": "zero_wf",
+                    "Q": "pi_wf",
                 },
             },
             "pi_half_pulse": {
@@ -296,22 +300,6 @@ def get_config(octave_label):
                 "cosine": [(0.0, READOUT_LEN)],
                 "sine": [(-1.0, READOUT_LEN)],
             }
-        },
-        "mixers": {
-            "mixer_qubit": [
-                {
-                    "intermediate_frequency": qubit_IF,
-                    "lo_frequency": qubit_LO,
-                    # "correction": IQ_imbalance(mixer_qubit_g, mixer_qubit_phi),
-                }
-            ],
-            "mixer_resonator": [
-                {
-                    "intermediate_frequency": resonator_IF,
-                    "lo_frequency": resonator_LO,
-                    # "correction": IQ_imbalance(mixer_resonator_g, mixer_resonator_phi),
-                }
-            ],
         },
     }
 

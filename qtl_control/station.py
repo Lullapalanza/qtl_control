@@ -38,7 +38,7 @@ def get_controller(
                     )  # Existing controller ownership is given to new ct
 
                 elif value in controller_refrences.keys():
-                    controller_refrences[key] = controller_refrences[value] # Existing controller stays the same, only the ref is given to new ct
+                    values[key] = controller_refrences[value] # Existing controller stays the same, only the ref is given to new ct
 
             new_controller = cm.add_controller(
                 controller_type, controller_name, **values

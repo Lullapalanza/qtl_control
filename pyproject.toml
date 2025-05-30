@@ -20,5 +20,6 @@ dependencies = [
     "qualang-tools",
     "matplotlib",
     "xarray",
+    "netCDF4",
 ]
 dynamic = ["version"]

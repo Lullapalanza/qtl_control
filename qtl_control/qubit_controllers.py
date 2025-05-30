@@ -5,6 +5,7 @@ from qtl_control.controller_module import (
     ControllerModule,
 )
 from qtl_control.qtl_qm.utils import READOUT_LEN, u
+from qualang_tools.results import progress_counter, fetching_tool
 
 class PulseSequence:
     pass
@@ -16,10 +17,12 @@ class TransmonQubit(StationNode):
 
         self.qm_manager = qm_manager
 
-        self.update_settings([
-            Setting("qubit_frequency", ),
-            Setting("readout_frequency", )
-        ])
+        def set_lo_freq(new_freq):
+            self.qm_manager.reload_config(new_freq)
+
+        self.update_settings({
+            "readout_LO_frequency": Setting(5.9e9, setter=set_lo_freq),
+        })
 
         
 
@@ -39,13 +42,18 @@ class PulsedQubits(ControllerModule):
         """
         pulses: dict of components corresponding to readout, flux and drive channels and pulse sequences
         """
-        qm_manager = self.controllers[component].qm_manager
-        job = qm_manager.execute(qm_program)
+        qm = self.controllers[component].qm_manager.qm
+        job = qm.execute(qm_program)
         
-        results = job.result_handles
+        from qm import generate_qua_script
+        sourceFile = open("debug.py", "w")
+        print(generate_qua_script(qm_program, self.controllers[component].qm_manager.config), file=sourceFile)
+        sourceFile.close()
+
+        results = fetching_tool(job, data_list=["I", "Q", "iteration"], mode="live")
         while results.is_processing():
             I, Q, iteration = results.fetch_all()
-
             S = u.demod2volts(I + 1.j * Q, READOUT_LEN)
+            progress_counter(iteration, 1024 * 2, start_time=results.get_start_time())
 
         return S
