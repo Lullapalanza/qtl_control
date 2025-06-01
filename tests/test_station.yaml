@@ -1,8 +1,8 @@
 ControllerModules:
-  MockModule: qtl_control.backend.controller_module
-  RandSModule: qtl_control.backend.rands_vna
-  PulsedQubits: qtl_control.backend.qubit_controllers
-  QuantumMachinesModule: qtl_control.backend.qtl_qm.qm_controllers
+  MockModule: qtl_control.controller_module
+  RandSModule: qtl_control.rands_vna
+  PulsedQubits: qtl_control.qubit_controllers
+  QuantumMachinesModule: qtl_control.qtl_qm.qm_controllers
 
 controllers:
   hw_controller_0:
@@ -23,24 +23,15 @@ controllers:
     host: 10.10
     port: 0000
 
-  qm_opx:
-    type: QMOPXManagerMock
-    host: null
-    port: null
-    cluster_name: null
-
-  readout_0:
-    type: QMOPXReadoutChannel
-    qm_manager: ref_qm_opx
-    channel_in: 1
-    channel_out: 1
-
-  drive_5:
-    type: QMOPXDriveChannel
-    qm_manager: ref_qm_opx
-    channel_out: 5
+  qm_manager:
+    type: QMManager
+    host:
+    port:
+    cluster_name:
+    octave_lable:
+    octave_ip:
 
   qubit_0:
     type: TransmonQubit
-    drive: drive_5
-    readout: readout_0
+    # drive_channel: null
+    # readout_channel: null
