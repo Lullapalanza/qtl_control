@@ -5,7 +5,7 @@ Defined station which does station stuff based on a configuriation. Collects tog
 import yaml
 import importlib
 
-from qtl_control.controller_module import StationNode
+from qtl_control.backend.controller_module import StationNode
 
 
 class UndefinedController(Exception):

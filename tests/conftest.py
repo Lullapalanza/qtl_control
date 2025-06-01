@@ -1,7 +1,7 @@
 import pytest
 
 from pathlib import Path
-from qtl_control.station import parse_config_to_station
+from qtl_control.backend import parse_config_to_station
 
 
 @pytest.fixture

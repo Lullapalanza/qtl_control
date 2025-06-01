@@ -1,4 +1,4 @@
-from qtl_control.controller_module import (
+from qtl_control.backend.controller_module import (
     Setting,
     StationNode,
     StationNodeRef,
