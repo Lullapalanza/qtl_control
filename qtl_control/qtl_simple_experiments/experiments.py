@@ -5,85 +5,98 @@ import numpy as np
 
 from qm.qua import *
 from qualang_tools.loops import from_array
+from qm import QuantumMachinesManager
+from qm.octave import QmOctaveConfig
+from qualang_tools.results import progress_counter, fetching_tool
 
-from qtl_control.qtl_qm.utils import qubit_LO, u, qubit_IF
+from qtl_control.qtl_simple_experiments.qm_config import generate_config
 
-class QTLExperiment:
+import sys
+import atexit
+import signal
+def kill_handler(*args):
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, kill_handler)
+signal.signal(signal.SIGTERM, kill_handler)
+
+
+class QTLQMSimpleStation:
+    def __init__(self, host, port, cluster_name):
+        octave_config = QmOctaveConfig()
+        octave_config.set_calibration_db("")
+        self.qm_manager = QuantumMachinesManager(
+            host=host, port=port, cluster_name=cluster_name, octave=octave_config
+        )
+
+        self.settings = {
+            "readout_LO": 7e9,
+            "readout_IF": -0.3e9,
+            "readout_amp": 0.01,
+            "readout_len": 2000,
+
+            "qubit_LO": 7e9,
+            "qubit_IF": -0.3e9,
+
+        }
+
+        self.qm = self.qm_manager.open_qm(generate_config(self.settings))
+
+        def exit_handler():
+            print("Cleaning up, closing QM")
+            self.qm.close()
+        atexit.register(exit_handler)
+
+
+    def change_settings(self, new_settings):
+        self.settings.update(new_settings)
+        self.qm.close()
+        self.qm = self.qm_manager.open_qm(generate_config(self.settings))
+
+
+    def execute(self, program, Navg):
+        job = self.qm.execute(program)
+        results = fetching_tool(job, data_list=["I", "Q", "iteration"], mode="live")
+        while results.is_processing():
+            I, Q, iteration = results.fetch_all()
+            S = u.demod2volts(I + 1.j * Q, self.settings["readout_len"])
+            progress_counter(iteration, Navg, start_time=results.get_start_time())
+
+        return S
+
+
+class QTLQMExperiment:
     """
     An experiment instance that allows to predefine some operations and experiments
     """
-    default_db = None
-    default_station = None
+    db = None
+    station = None
 
-    def run(self, autosave=True):
-        pass
+    def run(self, sweep=None, Navg=1024, autosave=True, **kwargs):
+        program = self.get_program(Navg, sweep, **kwargs)
+        results = self.station.execute(program, Navg)
 
-class VNATrace(QTLExperiment):
-    experiment_name = "VNATrace"
-
-    def run(self, vna_name, parameter=None, sweep_points=None):
-        if parameter is None:
-            data = self.default_station.run_module_method(
-                "RandSModule",
-                "get_frequency_trace",
-                vna_name
-            )
-            # Format data to xarray?
-
-            frequency_data = data[0]
-            Sparam_data = data[1]
-
-            ds = xr.Dataset(
-                data_vars=dict(
-                    Sparam=(["frequency", ], Sparam_data)
-                ),
-                coords=dict(
-                    frequency=frequency_data
-                ),
-            )
-
-        else:
-            data = self.default_station.external_sweeps(
-                [dict({parameter: sp}) for sp in sweep_points],
-                "RandSModule",
-                "get_frequency_trace",
-                vna_name
-            )
-
-            # Assume frequency axis is the same for all
-            frequency_data = data[0][0]
-            ds = xr.Dataset(
-                data_vars=dict(
-                    Sparam=([parameter, "frequency"], [data[i][1] for i in range(len(sweep_points))])
-                ),
-                coords={
-                    parameter: sweep_points,
-                    "frequency": frequency_data,
-                }
-            )
-
-        saved_id = self.default_db.save_data(
-            self.experiment_name,
-            ds
+        ds = xr.DataSet(
+            data_cars={"iq": (self.sweep_label(), results)},
+            coords={} if self.sweep_label() is None else {self.sweep_label(): sweep}
         )
 
-        return saved_id, ds
-    
-    def plot(self, data):
-        mag_data = np.abs(data["Sparam"])
-        phase_data = xr.ufuncs.angle(data["Sparam"])
+        if autosave:
+            saved_id = self.db.save_data(self.experiment_name, ds)
+            return saved_id, ds
 
-        fig, axs = plt.subplots(2)
-        mag_data.plot(ax=axs[0])
-        phase_data.plot(ax=axs[1])
+        else:
+            return None, ds
 
-class ReadoutResonatorSpectroscopy(QTLExperiment):
+
+class ReadoutResonatorSpectroscopy(QTLQMExperiment):
     experiment_name = "QMReadoutSpec"
 
-    def run(self, qubit, frequency_range, resonator_LO):
-        N_avg = 1024 * 2
-        depletion_time = 2 * u.us
-        df = frequency_range - resonator_LO
+    def sweep_label(self):
+        return "readout_frequency"
+
+    def get_program(self, Navg, sweep, wait_after=1000):
+        sweep = sweep - self.station.settings["readout_LO"]
         with program() as resonator_spec:
             n = declare(int)  # QUA variable for the averaging loop
             f = declare(int)  # QUA variable for the readout frequency
@@ -93,9 +106,8 @@ class ReadoutResonatorSpectroscopy(QTLExperiment):
             Q_st = declare_stream()  # Stream for the 'Q' quadrature
             n_st = declare_stream()  # Stream for the averaging iteration 'n'
 
-            with for_(n, 0, n < N_avg, n + 1):  # QUA for_ loop for averaging
-                with for_(*from_array(f, df)):  # QUA for_ loop for sweeping the frequency
-                    # Update the frequency of the digital oscillator linked to the resonator element
+            with for_(n, 0, n < Navg, n + 1):  # QUA for_ loop for averaging
+                with for_(*from_array(f, sweep)):  # QUA for_ loop for sweeping the frequency
                     update_frequency("resonator", f)
                     # Measure the resonator (send a readout pulse and demodulate the signals to get the 'I' & 'Q' quadratures)
                     measure(
@@ -106,7 +118,7 @@ class ReadoutResonatorSpectroscopy(QTLExperiment):
                         dual_demod.full("minus_sin", "cos", Q),
                     )
                     # Wait for the resonator to deplete
-                    wait(depletion_time * u.ns, "resonator")
+                    wait(wait_after, "resonator")
                     # Save the 'I' & 'Q' quadratures to their respective streams
                     save(I, I_st)
                     save(Q, Q_st)
@@ -114,34 +126,10 @@ class ReadoutResonatorSpectroscopy(QTLExperiment):
                 save(n, n_st)
 
             with stream_processing():
-                # Cast the data into a 1D vector, average the 1D vectors together and store the results on the OPX processor
-                I_st.buffer(len(frequency_range)).average().save("I")
-                Q_st.buffer(len(frequency_range)).average().save("Q")
+                I_st.buffer(len(sweep)).average().save("I")
+                Q_st.buffer(len(sweep)).average().save("Q")
                 n_st.save("iteration")
 
-        results = self.default_station.run_module_method(
-            "PulsedQubits",
-            "execute_program",
-            qubit,
-            resonator_spec
-        )
-
-        # === DATA TO XARRAY AND SAVE
-        ds = xr.Dataset(
-            data_vars={
-                "iq": (["readout_frequency"], results)
-            },
-            coords={
-                "readout_frequency": frequency_range,
-            }
-        )
-    
-        saved_id = self.default_db.save_data(
-            self.experiment_name,
-            ds
-        )
-
-        return saved_id, ds
 
 class QubitSpec(QTLExperiment):
     experiment_name = "QMspec"

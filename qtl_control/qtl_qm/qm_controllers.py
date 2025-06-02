@@ -1,5 +1,5 @@
 from qm import QuantumMachinesManager
-# from qm.octave import QmOctaveConfig
+from qm.octave import QmOctaveConfig
 
 from qtl_control.controller_module import (
     Setting,
@@ -24,13 +24,8 @@ class QMManager(StationNode):
     QMManager class of OPX + Octave that distributes other channels
     """
 
-    def __init__(self, label, host, port, cluster_name, octave_label):
+    def __init__(self, label, host, port, cluster_name):
         super().__init__(label)
-
-        # self.octave_config = QmOctaveConfig()
-        # self.octave_config.add_device_info(octave_label, octave_ip, 80)
-        # self.octave_label = octave_label
-        from qm.octave import QmOctaveConfig
 
         octave_config = QmOctaveConfig()
         octave_config.set_calibration_db("")
@@ -40,7 +35,6 @@ class QMManager(StationNode):
 
         self.config = get_config()
         self.qm = self.qm_manager.open_qm(self.config)
-
 
         def exit_handler():
             print("Cleaning up, closing QM")
