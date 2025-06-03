@@ -7,12 +7,12 @@ u = unit(coerce_to_integer=True)
 
 def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
     readout_LO = settings["readout_LO"]
-    readout_IF = settings["readout_IF"]
+    readout_IF = settings["readout_frequency"] - readout_LO
     readout_amp = settings["readout_amp"]
     readout_len = settings["readout_len"]
 
     qubit_LO = settings["qubit_LO"]
-    qubit_IF = settings["qubit_IF"]
+    qubit_IF = settings["qubit_frequency"] - qubit_LO
 
     time_of_flight = 200
     octave_label = "oct1"
