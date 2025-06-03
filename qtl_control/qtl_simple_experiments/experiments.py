@@ -40,6 +40,8 @@ class QTLQMSimpleStation:
             "qubit_LO": 7e9,
             "qubit_frequency": 6.9e9,
 
+            "X180_duration": 300,
+            "X180_amplitude": 0.1,
         }
 
         self.qm = self.qm_manager.open_qm(generate_config(self.settings))
@@ -56,7 +58,15 @@ class QTLQMSimpleStation:
         self.qm = self.qm_manager.open_qm(generate_config(self.settings))
 
 
-    def execute(self, program, Navg):
+    def execute(self, program, Navg, single_shot=False):
+        # if single_shot:
+        #     job = self.qm.execute(program)
+        #     job.result_handles.wait_for_all_values()
+        #     I = job.result_handles.get("I").fetch_all()["value"]
+        #     Q = job.result_handles.get("Q").fetch_all()["value"]
+
+
+        # else:
         job = self.qm.execute(program)
         results = fetching_tool(job, data_list=["I", "Q", "iteration"], mode="live")
         while results.is_processing():
@@ -120,7 +130,7 @@ class ReadoutResonatorSpectroscopy(QTLQMExperiment):
                         dual_demod.full("minus_sin", "cos", Q),
                     )
                     # Wait for the resonator to deplete
-                    wait(wait_after, "resonator")
+                    wait(wait_after//4, "resonator")
                     # Save the 'I' & 'Q' quadratures to their respective streams
                     save(I, I_st)
                     save(Q, Q_st)
@@ -167,7 +177,7 @@ class PunchOut(QTLQMExperiment):
                             dual_demod.full("minus_sin", "cos", Q),
                         )
                         # Wait for the resonator to deplete
-                        wait(wait_after, "resonator")
+                        wait(wait_after//4, "resonator")
                         # Save the 'I' & 'Q' quadratures to their respective streams
                         save(I, I_st)
                         save(Q, Q_st)
@@ -221,7 +231,7 @@ class QubitSpec(QTLQMExperiment):
                         dual_demod.full("minus_sin", "cos", Q),
                     )
                     # Wait for the qubit to decay to the ground state
-                    wait(wait_after, "resonator")
+                    wait(wait_after//4, "resonator")
                     # Save the 'I' & 'Q' quadratures to their respective streams
                     save(I, I_stream)
                     save(Q, Q_stream)
@@ -237,7 +247,7 @@ class QubitSpec(QTLQMExperiment):
         return spec_program
 
 class Rabi(QTLQMExperiment):
-    experiment_name = "QMsQMRabi"
+    experiment_name = "QMRabi"
 
     def sweep_labels(self):
         return ["ampltidue", ]
@@ -261,7 +271,7 @@ class Rabi(QTLQMExperiment):
                     
                     
                     # play("x180" * amp(a), "qubit")
-                    play("x180" * amp(a), "qubit", duration=pulse_duration)
+                    play("gauss" * amp(a), "qubit", duration=pulse_duration)
                     
                     # Align the two elements to measure after playing the qubit pulse.
                     align("qubit", "resonator")
@@ -275,7 +285,7 @@ class Rabi(QTLQMExperiment):
                         dual_demod.full("minus_sin", "cos", Q),
                     )
                     # Wait for the qubit to decay to the ground state
-                    wait(wait_after, "resonator")
+                    wait(wait_after//4, "resonator")
                     # Save the 'I' & 'Q' quadratures to their respective streams
                     save(I, I_stream)
                     save(Q, Q_stream)
@@ -291,270 +301,160 @@ class Rabi(QTLQMExperiment):
 
         return rabi
 
-# class TimeRabi(QTLExperiment):
-#     experiment_name = "QMTimeRabi"
-#     def run(self, qubit, durations, _amp):
-#         N_avg = 2024
-#         thermalization_time = 300 * u.us
-#         wait_between_ro = 300 * u.ns
-#         # === START QM program ===
-#         with program() as rabi_chevron:
-#             n = declare(int)
-#             a = declare(fixed)
-#             t = declare(int)
-#             I = declare(fixed)
-#             Q = declare(fixed)
+class TimeRabi(QTLQMExperiment):
+    experiment_name = "QMTimeRabi"
 
-#             I_stream = declare_stream()
-#             Q_stream = declare_stream()
-#             n_stream = declare_stream()
+    def sweep_labels(self):
+        return ["duration", ]
 
-#             update_frequency("qubit", qubit_IF)
+    def get_program(self, Navg, sweeps, pulse_amplitude=0.1, wait_after=50000):
+        duration_sweep = sweeps[0]
+        # === START QM program ===
+        with program() as rabi_time:
+            n = declare(int)
+            a = declare(fixed)
+            t = declare(int)
+            I = declare(fixed)
+            Q = declare(fixed)
+
+            I_stream = declare_stream()
+            Q_stream = declare_stream()
+            n_stream = declare_stream()
 
 
-#             with for_(n, 0, n < N_avg, n + 1):  # QUA for_ loop for averaging
-#                 with for_(*from_array(t, durations)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
-#                     # Play the qubit pulse with a variable amplitude (pre-factor to the pulse amplitude defined in the config)
+            with for_(n, 0, n < Navg, n + 1):  # QUA for_ loop for averaging
+                with for_(*from_array(t, duration_sweep)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
+                    # Play the qubit pulse with a variable amplitude (pre-factor to the pulse amplitude defined in the config)
                     
                     
-#                     # play("x180" * amp(a), "qubit")
-#                     play("pi" * amp(_amp), "qubit", duration=t)
-#                     # wait(t, "qubit")
+                    # play("x180" * amp(a), "qubit")
+                    play("gauss" * amp(pulse_amplitude), "qubit", duration=t)
+                    # wait(t, "qubit")
                     
-#                     # Align the two elements to measure after playing the qubit pulse.
-#                     align("qubit", "resonator")
-#                     # Measure the state of the resonator
-#                     # The integration weights have changed to maximize the SNR after having calibrated the IQ blobs.
-#                     wait(wait_between_ro * u.ns, "resonator") # Wait for delays?
-#                     measure(
-#                         "readout",
-#                         "resonator",
-#                         None,
-#                         dual_demod.full("cos", "sin", I),
-#                         dual_demod.full("minus_sin", "cos", Q),
-#                     )
-#                     # Wait for the qubit to decay to the ground state
-#                     wait(thermalization_time * u.ns, "resonator")
-#                     # Save the 'I' & 'Q' quadratures to their respective streams
-#                     save(I, I_stream)
-#                     save(Q, Q_stream)
-#                 # Save the averaging iteration to get the progress bar
-#                 save(n, n_stream)
+                    # Align the two elements to measure after playing the qubit pulse.
+                    align("qubit", "resonator")
+                    # Measure the state of the resonator
+                    # The integration weights have changed to maximize the SNR after having calibrated the IQ blobs.
+                    measure(
+                        "readout",
+                        "resonator",
+                        None,
+                        dual_demod.full("cos", "sin", I),
+                        dual_demod.full("minus_sin", "cos", Q),
+                    )
+                    # Wait for the qubit to decay to the ground state
+                    wait(wait_after//4, "resonator")
+                    # Save the 'I' & 'Q' quadratures to their respective streams
+                    save(I, I_stream)
+                    save(Q, Q_stream)
+                # Save the averaging iteration to get the progress bar
+                save(n, n_stream)
 
-#             with stream_processing():
-#                 # Cast the data into a 2D matrix, average the 2D matrices together and store the results on the OPX processor
-#                 I_stream.buffer(len(durations)).average().save("I")
-#                 Q_stream.buffer(len(durations)).average().save("Q")
-#                 n_stream.save("iteration")
-#         # === END QM program ===
+            with stream_processing():
+                # Cast the data into a 2D matrix, average the 2D matrices together and store the results on the OPX processor
+                I_stream.buffer(len(durations)).average().save("I")
+                Q_stream.buffer(len(durations)).average().save("Q")
+                n_stream.save("iteration")
+        # === END QM program ===
 
-#         # === SEND PROGRAM ===
-#         results = self.default_station.run_module_method(
-#             "PulsedQubits",
-#             "execute_program",
-#             qubit,
-#             rabi_chevron
-#         )
+        return rabi_time
 
-#         # === DATA TO XARRAY AND SAVE
-#         ds = xr.Dataset(
-#             data_vars={
-#                 "iq": (["duration"], results)
-#             },
-#             coords={
-#                 "duration": durations,
-#             }
-#         )
+class T1(QTLQMExperiment):
+    experiment_name = "QMT1"
+
+    def sweep_labels(self):
+        return ["delay", ]
+
+    def get_program(self, Navg, sweeps, wait_after=50000):
+        delay_sweep = sweeps[0] / 4
+        # === START QM program ===
+        with program() as t1_program:
+            n = declare(int)
+            a = declare(fixed)
+            t = declare(int)
+            I = declare(fixed)
+            Q = declare(fixed)
+
+            I_stream = declare_stream()
+            Q_stream = declare_stream()
+            n_stream = declare_stream()
+
+            update_frequency("qubit", qubit_IF)
+
+
+            with for_(n, 0, n < Navg, n + 1):  # QUA for_ loop for averaging
+                with for_(*from_array(t, delay_sweep)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
+                    # Play the qubit pulse with a variable amplitude (pre-factor to the pulse amplitude defined in the config)
+                    
+                    
+                    # play("x180" * amp(a), "qubit")
+                    play("x180", "qubit")
+                    # wait(t, "qubit")
+                    wait(t, "qubit") # in units of 4 ns
+                    # Align the two elements to measure after playing the qubit pulse.
+                    align("qubit", "resonator")
+                    # Measure the state of the resonator
+                    # The integration weights have changed to maximize the SNR after having calibrated the IQ blobs.
+                    measure(
+                        "readout",
+                        "resonator",
+                        None,
+                        dual_demod.full("cos", "sin", I),
+                        dual_demod.full("minus_sin", "cos", Q),
+                    )
+                    # Wait for the qubit to decay to the ground state
+                    wait(wait_after//4, "resonator")
+                    # Save the 'I' & 'Q' quadratures to their respective streams
+                    save(I, I_stream)
+                    save(Q, Q_stream)
+                # Save the averaging iteration to get the progress bar
+                save(n, n_stream)
+
+            with stream_processing():
+                # Cast the data into a 2D matrix, average the 2D matrices together and store the results on the OPX processor
+                I_stream.buffer(len(waits)).average().save("I")
+                Q_stream.buffer(len(waits)).average().save("Q")
+                n_stream.save("iteration")
+        # === END QM program ===
+        return t1_program
     
-#         saved_id = self.default_db.save_data(
-#             self.experiment_name,
-#             ds
-#         )
+class SingleShotReadout(QTLQMExperiment):
+    experiment_name = "QMSSH"
 
-#         return saved_id, ds
+    def sweep_labels(self):
+        return ["state"]
+        
+    def get_program(self, Navg, sweeps, wait_after=50000):
+        sweep = ["zero_wf", "x180"]
+        with program() as IQ_blobs:
+            n = declare(int)
+            op = declare(fixed)
+            I = declare(fixed)
+            Q = declare(fixed)
+            I_st = declare_stream()
+            Q_st = declare_stream()
 
-# class RabiChevron(QTLExperiment):
-#     experiment_name = "RabiChevron"
-#     """
-#     Run Rabi Chevron for a qubit, ranges are internal sweeps for the device
+            with for_(n, 0, n < Navg, n + 1):
+                with for_(*from_array(op, sweep)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
+                # Measure the state of the resonator
+                    play(op, "qubit")
+                    align("qubit", "resonator")
+                    measure(
+                        "readout",
+                        "resonator",
+                        None,
+                        dual_demod.full("rotated_cos", "rotated_sin", I),
+                        dual_demod.full("rotated_minus_sin", "rotated_cos", Q),
+                    )
+                # Wait for the qubit to decay to the ground state in the case of measurement induced transitions
+                    wait(wait_after//4, "resonator")
+                # Save the 'I' & 'Q' quadratures to their respective streams for the ground state
+                    save(I, I_st)
+                    save(Q, Q_st)
 
-#     Currently just for qm
-#     """
-
-#     def run(self, qubit, frequency_range, duration_range):
-#         N_avg = 2024
-#         thermalization_time = 100 * u.us
-#         wait_between_ro = 100 * u.ns
-#         # === START QM program ===
-#         with program() as rabi_chevron:
-#             n = declare(int)
-#             f = declare(int)
-#             t = declare(int)
-#             I = declare(fixed)
-#             Q = declare(fixed)
-
-#             I_stream = declare_stream()
-#             Q_stream = declare_stream()
-#             n_stream = declare_stream()
-
-            
-#             df = frequency_range - qubit_LO
-
-#             with for_(n, 0, n < N_avg, n+1):
-#                 with for_(*from_array(t, duration_range)):
-#                     with for_(*from_array(f, df)):
-#                         update_frequency(qubit, f)
-
-#                         play("x180", qubit, duration=t)
-#                         align(qubit, "resonator")
-#                         # wait(300, "resonator") # Wait for delays?
-#                         measure(
-#                             "readout",
-#                             "resonator",
-#                             None,
-#                             dual_demod.full("cos", "sin", I),
-#                             dual_demod.full("minus_sin", "cos", Q),
-#                         )
-#                         # Wait for the qubit to decay to the ground state
-#                         wait(thermalization_time * u.ns, "resonator")
-#                         # Save the 'I' & 'Q' quadratures to their respective streams
-#                         save(I, I_stream)
-#                         save(Q, Q_stream)
-#                 # Save the averaging iteration to get the progress bar
-#                 save(n, n_stream)
-
-#             with stream_processing():
-#                 # Cast the data into a 2D matrix, average the 2D matrices together and store the results on the OPX processor
-#                 I_stream.buffer(len(frequency_range)).buffer(len(duration_range)).average().save("I")
-#                 Q_stream.buffer(len(frequency_range)).buffer(len(duration_range)).average().save("Q")
-#                 n_stream.save("iteration")
-#         # === END QM program ===
-
-#         # === SEND PROGRAM ===
-#         results = self.default_station.run_module_method(
-#             "PulsedQubits",
-#             "execute_program",
-#             qubit,
-#             rabi_chevron
-#         )
-
-#         # === DATA TO XARRAY AND SAVE
-#         ds = xr.Dataset(
-#             data_vars={
-#                 "iq": (["duration", "drive_frequency"], results)
-#             },
-#             coords={
-#                 "drive_frequency": frequency_range,
-#                 "duration": duration_range,
-#             }
-#         )
-    
-#         saved_id = self.default_db.save_data(
-#             self.experiment_name,
-#             ds
-#         )
-
-#         return saved_id, ds
-  
-
-
-# class T1(QTLExperiment):
-#     experiment_name = "QMT1"
-#     def run(self, qubit, waits, _amp, duration_ns):
-#         N_avg = 2024
-#         thermalization_time = 300 * u.us
-#         wait_between_ro = 300 * u.ns
-#         duration_ns = duration_ns * u.ns
-#         # === START QM program ===
-#         with program() as rabi_chevron:
-#             n = declare(int)
-#             a = declare(fixed)
-#             t = declare(int)
-#             I = declare(fixed)
-#             Q = declare(fixed)
-
-#             I_stream = declare_stream()
-#             Q_stream = declare_stream()
-#             n_stream = declare_stream()
-
-#             update_frequency("qubit", qubit_IF)
-
-
-#             with for_(n, 0, n < N_avg, n + 1):  # QUA for_ loop for averaging
-#                 with for_(*from_array(t, waits)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
-#                     # Play the qubit pulse with a variable amplitude (pre-factor to the pulse amplitude defined in the config)
-                    
-                    
-#                     # play("x180" * amp(a), "qubit")
-#                     play("x180" * amp(_amp), "qubit", duration=duration_ns * u.ns)
-#                     # wait(t, "qubit")
-#                     wait(t, "qubit")
-#                     # Align the two elements to measure after playing the qubit pulse.
-#                     align("qubit", "resonator")
-#                     # Measure the state of the resonator
-#                     # The integration weights have changed to maximize the SNR after having calibrated the IQ blobs.
-#                     wait(wait_between_ro * u.ns, "resonator") # Wait for delays?
-#                     measure(
-#                         "readout",
-#                         "resonator",
-#                         None,
-#                         dual_demod.full("cos", "sin", I),
-#                         dual_demod.full("minus_sin", "cos", Q),
-#                     )
-#                     # Wait for the qubit to decay to the ground state
-#                     wait(thermalization_time * u.ns, "resonator")
-#                     # Save the 'I' & 'Q' quadratures to their respective streams
-#                     save(I, I_stream)
-#                     save(Q, Q_stream)
-#                 # Save the averaging iteration to get the progress bar
-#                 save(n, n_stream)
-
-#             with stream_processing():
-#                 # Cast the data into a 2D matrix, average the 2D matrices together and store the results on the OPX processor
-#                 I_stream.buffer(len(waits)).average().save("I")
-#                 Q_stream.buffer(len(waits)).average().save("Q")
-#                 n_stream.save("iteration")
-#         # === END QM program ===
-
-#         # === SEND PROGRAM ===
-#         results = self.default_station.run_module_method(
-#             "PulsedQubits",
-#             "execute_program",
-#             qubit,
-#             rabi_chevron
-#         )
-
-#         # === DATA TO XARRAY AND SAVE
-#         ds = xr.Dataset(
-#             data_vars={
-#                 "iq": (["wait_time"], results)
-#             },
-#             coords={
-#                 "wait_time": waits,
-#             }
-#         )
-    
-#         saved_id = self.default_db.save_data(
-#             self.experiment_name,
-#             ds
-#         )
-
-#         return saved_id, ds
-
-
-# class SingleQubitRB(QTLExperiment):
-#     experiment_name = "SingleQubitRB"
-
-#     def run(self, controller_name, nr_of_iterations):
-#         full_data = None
-#         for i in nr_of_iterations:
-#             new_hash = ...
-#             new_sqrb_sequence = ...
-
-#             # station.run(...)
-
-#         self.default_db.save_data(
-#             self.experiment_name,
-#             full_data,
-#             [("hash", [i for i in nr_of_iterations])]
-#         )
+            with stream_processing():
+                # Save all streamed points for plotting the IQ blobs
+                I_st.buffer(len(sweep)).save_all("I")
+                Q_st.buffer(len(sweep)).save_all("Q")
+        
+        return IQ_blobs

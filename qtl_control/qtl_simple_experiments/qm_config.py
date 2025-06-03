@@ -14,6 +14,10 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
     qubit_LO = settings["qubit_LO"]
     qubit_IF = settings["qubit_frequency"] - qubit_LO
 
+
+    X180_duration = settings["X180_duration"]
+    X180_amplitude = settings["X180_amplitude"]
+
     time_of_flight = 200
     octave_label = "oct1"
 
@@ -82,6 +86,7 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
                 "y90": "y90_pulse",
                 "y180": "y180_pulse",
                 "-y90": "-y90_pulse",
+                "gauss": "gauss_pulse"
             },
         },
         "resonator": {
@@ -105,22 +110,30 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
         # },
     }
 
-    CONST_LEN = 300
-    CONST_FLUX_LEN = 300
+    CONST_LEN = X180_duration
+    CONST_FLUX_LEN = X180_duration
     SATURATION_LEN = 1000
-    SQ_PULSE_LEN = 300
+    SQ_PULSE_LEN = X180_duration
 
-    CONST_AMP = 0.4
-    SATURATION_AMP = 0.4
-    PI_AMP = 0.4
+    CONST_AMP = 1
+    SATURATION_AMP = 1
+    PI_AMP = 1
     FLUX_AMP = 0.001
 
     GDRAG_SIGMA = SQ_PULSE_LEN / 4
     GDRAG_COEFF = 0
     GDRAG_ALPHA = -200 * u.MHz
     GDRAG_STARK = 0
+    
     SQ_gaussian, SQ_gaus_der = np.array(
-        drag_gaussian_pulse_waveforms(PI_AMP, SQ_PULSE_LEN, GDRAG_SIGMA, GDRAG_COEFF, GDRAG_ALPHA, GDRAG_STARK)
+        drag_gaussian_pulse_waveforms(
+            1,
+            SQ_PULSE_LEN,
+            GDRAG_SIGMA,
+            GDRAG_COEFF,
+            GDRAG_ALPHA,
+            GDRAG_STARK
+        )
     )
 
 
@@ -131,19 +144,21 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
         "pi_half_wf": {"type": "constant", "sample": PI_AMP / 2},
         "const_flux_wf": {"type": "constant", "sample": FLUX_AMP},
         "zero_wf": {"type": "constant", "sample": 0.0},
-        "x180_I_wf": {"type": "arbitrary", "samples": SQ_gaussian.tolist()},
-        "x180_Q_wf": {"type": "arbitrary", "samples": SQ_gaus_der.tolist()},
-        "x90_I_wf": {"type": "arbitrary", "samples": (SQ_gaussian/2).tolist()},
-        "x90_Q_wf": {"type": "arbitrary", "samples": (SQ_gaus_der/2).tolist()},
-        "minus_x90_I_wf": {"type": "arbitrary", "samples": (-SQ_gaussian/2).tolist()},
-        "minus_x90_Q_wf": {"type": "arbitrary", "samples": (-SQ_gaus_der/2).tolist()},
+        "gauss_I_wf": {"type": "arbitrary", "samples": SQ_gaussian.tolist()},
+        "gauss_Q_wf": {"type": "arbitrary", "samples": SQ_gaus_der.tolist()},
+        "x180_I_wf": {"type": "arbitrary", "samples": (SQ_gaussian*X180_amplitude).tolist()},
+        "x180_Q_wf": {"type": "arbitrary", "samples": (SQ_gaus_der*X180_amplitude).tolist()},
+        "x90_I_wf": {"type": "arbitrary", "samples": (SQ_gaussian*X180_amplitude/2).tolist()},
+        "x90_Q_wf": {"type": "arbitrary", "samples": (SQ_gaus_der*X180_amplitude/2).tolist()},
+        "minus_x90_I_wf": {"type": "arbitrary", "samples": (-SQ_gaussian*X180_amplitude/2).tolist()},
+        "minus_x90_Q_wf": {"type": "arbitrary", "samples": (-SQ_gaus_der*X180_amplitude/2).tolist()},
 
-        "y180_I_wf": {"type": "arbitrary", "samples": (-SQ_gaus_der).tolist()},
-        "y180_Q_wf": {"type": "arbitrary", "samples": (SQ_gaussian).tolist()},
-        "y90_I_wf": {"type": "arbitrary", "samples": (-SQ_gaus_der/2).tolist()},
-        "y90_Q_wf": {"type": "arbitrary", "samples": (SQ_gaussian/2).tolist()},
-        "minus_y90_I_wf": {"type": "arbitrary", "samples": (SQ_gaus_der/2).tolist()},
-        "minus_y90_Q_wf": {"type": "arbitrary", "samples": (-SQ_gaussian/2).tolist()},
+        "y180_I_wf": {"type": "arbitrary", "samples": (-SQ_gaus_der*X180_amplitude).tolist()},
+        "y180_Q_wf": {"type": "arbitrary", "samples": (SQ_gaussian*X180_amplitude).tolist()},
+        "y90_I_wf": {"type": "arbitrary", "samples": (-SQ_gaus_der*X180_amplitude/2).tolist()},
+        "y90_Q_wf": {"type": "arbitrary", "samples": (SQ_gaussian*X180_amplitude/2).tolist()},
+        "minus_y90_I_wf": {"type": "arbitrary", "samples": (SQ_gaus_der*X180_amplitude/2).tolist()},
+        "minus_y90_Q_wf": {"type": "arbitrary", "samples": (-SQ_gaussian*X180_amplitude/2).tolist()},
         "readout_wf": {"type": "constant", "sample": readout_amp},
     }
 
@@ -202,6 +217,14 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
                 "waveforms": {
                     "I": "x90_I_wf",
                     "Q": "x90_Q_wf",
+                },
+            },
+            "gauss_pulse":{
+                "operation": "control",
+                "length": SQ_PULSE_LEN,
+                "waveforms": {
+                    "I": "gauss_I_wf",
+                    "Q": "gauss_Q_wf",
                 },
             },
             "x180_pulse": {
