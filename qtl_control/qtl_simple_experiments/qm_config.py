@@ -18,6 +18,8 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
     X180_duration = settings["X180_duration"]
     X180_amplitude = settings["X180_amplitude"]
 
+    dc_volt = settings["dc_volt"]
+
     time_of_flight = 200
     octave_label = "oct1"
 
@@ -59,7 +61,7 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
                 2: {"offset": 0.0},  # Q resonators
                 9: {"offset": 0.0},  # I qubit
                 10: {"offset": 0.0},  # Q qubit
-                3: {"offset": 0.2},  # flux line
+                3: {"offset": dc_volt},  # flux line
             },
             "digital_outputs": {
                 1: {},
@@ -118,7 +120,7 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
     CONST_AMP = 0.45
     SATURATION_AMP = 0.45
     PI_AMP = 0.45
-    FLUX_AMP = 0.1
+    FLUX_AMP = 0.45
 
     GDRAG_SIGMA = SQ_PULSE_LEN / 4
     GDRAG_COEFF = 0
