@@ -35,7 +35,7 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
                     "LO_frequency": qubit_LO,
                     "LO_source": "internal",
                     "output_mode": "always_on",
-                    "gain": -15,
+                    "gain": -20,
                 },
                 # 2: {...},
                 # 3: {...},
@@ -59,14 +59,14 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
                 2: {"offset": 0.0},  # Q resonators
                 9: {"offset": 0.0},  # I qubit
                 10: {"offset": 0.0},  # Q qubit
-                # 5: {"offset": 0.0},  # flux line?
+                3: {"offset": 0.2},  # flux line
             },
             "digital_outputs": {
                 1: {},
             },
             "analog_inputs": {
-                1: {"offset": 0.0, "gain_db": 20},  # I from down-conversion
-                2: {"offset": 0.0, "gain_db": 20},  # Q from down-conversion
+                1: {"offset": 0.0, "gain_db": 20},# 20},  # I from down-conversion
+                2: {"offset": 0.0, "gain_db": 20},# 20},  # Q from down-conversion
             },
         },
     }
@@ -100,14 +100,14 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
             "time_of_flight": time_of_flight,
             "smearing": 0,
         },
-        # "flux_line": {
-        #     "singleInput": {
-        #         "port": ("con1", 5),
-        #     },
-        #     "operations": {
-        #         "const": "const_flux_pulse",
-        #     },
-        # },
+        "flux_line": {
+            "singleInput": {
+                "port": ("con1", 3),
+            },
+            "operations": {
+                "const": "const_flux_pulse",
+            },
+        },
     }
 
     CONST_LEN = X180_duration
@@ -115,10 +115,10 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
     SATURATION_LEN = 1000
     SQ_PULSE_LEN = X180_duration
 
-    CONST_AMP = 1
-    SATURATION_AMP = 1
-    PI_AMP = 1
-    FLUX_AMP = 0.001
+    CONST_AMP = 0.45
+    SATURATION_AMP = 0.45
+    PI_AMP = 0.45
+    FLUX_AMP = 0.1
 
     GDRAG_SIGMA = SQ_PULSE_LEN / 4
     GDRAG_COEFF = 0
@@ -127,7 +127,7 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
     
     SQ_gaussian, SQ_gaus_der = np.array(
         drag_gaussian_pulse_waveforms(
-            1,
+            0.5,
             SQ_PULSE_LEN,
             GDRAG_SIGMA,
             GDRAG_COEFF,
