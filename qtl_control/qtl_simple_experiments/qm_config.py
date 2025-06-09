@@ -37,7 +37,7 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
                     "LO_frequency": qubit_LO,
                     "LO_source": "internal",
                     "output_mode": "always_on",
-                    "gain": -20,
+                    "gain": -20, # -20, # -20,
                 },
                 # 2: {...},
                 # 3: {...},

@@ -11,7 +11,7 @@ def notch_res(f, f0, a, alpha, phi, kext, kint):
     return a * np.exp(1.j * alpha) * (1 - (np.exp(1.j * phi)/np.cos(phi)) * kext / (2j * (f - f0) + (kext + kint)))
 
 def notch_res_abs(f, f0, a, alpha, phi, kext, kint):
-    return np.abs(notch_res(f0, a, alpha, phi, kext, kint))
+    return np.abs(notch_res(f, f0, a, alpha, phi, kext, kint))
 
 class ReadoutResonatorSpectroscopy(QTLQMExperiment):
     experiment_name = "QMReadoutSpec"
@@ -57,9 +57,9 @@ class ReadoutResonatorSpectroscopy(QTLQMExperiment):
         return resonator_spec
     
     def analyze_data(self, data):
-        res, _ = opt.curve_fit(notch_res_abs, data["readout_frequency"], np.abs(data["iq"]))
-        plt.plot(res["readout_frequency"], np.abs(data["iq"]))
-        plt.plot(res["readout_frequency"], notch_res_abs(res["readout_frequency"], *res))
+        res, _ = opt.curve_fit(notch_res_abs, data.coords["readout_frequency"], np.abs(data["iq"]))
+        plt.plot(data.coords["readout_frequency"], np.abs(data["iq"]))
+        plt.plot(data.coords["readout_frequency"], notch_res_abs(data.coords["readout_frequency"], *res))
         plt.show()
 
 
@@ -118,18 +118,32 @@ class ReadoutFluxSpectroscopy(QTLQMExperiment):
         amplitudes = data.coords["amplitude"]
         for a in amplitudes:
             data_slice = np.abs(data["iq"].sel(amplitude=a))
-            res, _ = opt.curve_fit(notch_res_abs, data_slice["readout_frequency"], data_slice)
+            res, _ = opt.curve_fit(
+                notch_res_abs,
+                data_slice["readout_frequency"],
+                data_slice,
+                p0=[6.985e9, 0.001, 0, 0, 10e6, 10e6]
+            )
             frequencies.append(res[0])
 
         def cosine_dep(v, period, offset, a, b):
-            return a * np.cos(2 * np.pi * v/period + offset) + b
+            return a * np.cos(2 * np.pi * (v-offset)/period) + b
 
-        res, _ = opt.curve_fit(cosine_dep, amplitudes, frequencies, bounds=(
-            [0.001, -np.pi, 0, 2e9],
-            [100, np.pi, 1e9, 10e9]
-        ))
+        p0 = [0.15, -0.05, 0.5e6, 6.985e9]
+        res, _ = opt.curve_fit(
+            cosine_dep,
+            amplitudes,
+            frequencies,
+            bounds=(
+                [0.001, -np.pi, 0, 6e9],
+                [100, np.pi, 1e9, 9e9]
+            ),
+            p0=p0
+        )
         plt.scatter(amplitudes, frequencies)
-        plt.plot(amplitudes, cosine_dep(amplitudes, *res))
+        plt.plot(amplitudes, cosine_dep(amplitudes, *res), label=res)
+        plt.plot(amplitudes, cosine_dep(amplitudes, *p0), color="gray")
+        plt.legend()
         plt.show()
 
 class PunchOut(QTLQMExperiment):
