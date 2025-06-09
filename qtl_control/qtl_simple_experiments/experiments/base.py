@@ -92,21 +92,34 @@ class ExperimentResult:
         self.id = None # In the future to reanalyze data
 
     def analyze(self):
-        self.experiment.analyze_data(self.data)
+        return self.experiment.analyze_data(self.data)
 
     def save(self):
-        id = self.db.save_data(self.experiment.experiment_name, self.data)
-        print(f"Saved with ID {id}")
+        self.id = self.db.save_data(self.experiment.experiment_name, self.data, overwrite_id=self.id)
+        print(f"Saved with ID {self.id}")
 
+    def mag_phase_plot(self):
+        fig, axs = plt.subplots(nrows=2, constrained_layout=True)
+        np.abs(self.data["iq"]).plot(ax=axs[0])
+        xr.ufuncs.phase(self.data["iq"]).plot(ax=axs[1])
+        fig.suptitle(f"{self.id}_{self.experiment.experiment_name}")
+        return fig
+
+    def iq_plot(self):
+        fig, axs = plt.subplots(constrained_layout=True)
+        axs.scatter(
+            self.data["iq"].re,
+            self.data["iq"].imag
+        )
+        return fig
 
 class QTLQMExperiment:
     """
     An experiment instance that allows to predefine some operations and experiments
     """
-    db = None
     station = None
 
-    def run(self, sweeps=None, Navg=1024, **kwargs):
+    def run(self, sweeps=None, Navg=1024, autosave=True, **kwargs):
         program = self.get_program(Navg, sweeps, **kwargs)
         results = self.station.execute(program, Navg)
 
@@ -115,4 +128,9 @@ class QTLQMExperiment:
             coords={label: values for label, values in zip(self.sweep_labels(), sweeps)}
         )
 
-        return ExperimentResult(ds, self)
+        exp_res = ExperimentResult(ds, self)
+
+        if autosave:
+            exp_res.save()
+
+        return exp_res

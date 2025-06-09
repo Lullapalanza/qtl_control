@@ -30,13 +30,19 @@ class FileSystemDB:
                 f.write(str(self.current_id))
             print(f"Created new DB")
 
-    def save_data(self, experiment_name, data):
+    def save_data(self, experiment_name, data, overwrite_id=None):
         # Save xarray dataset as '.nc'
-        self.current_id += 1
-        filename = f"{self.current_id}_{experiment_name}_{datetime.today().strftime(r'%Y_%m_%d')}.nc"
+        if overwrite_id is None:
+            self.current_id += 1
+            save_as_id = self.current_id
+        else:
+            save_as_id = overwrite_id
+
+        filename = f"{save_as_id}_{experiment_name}_{datetime.today().strftime(r'%Y_%m_%d')}.nc"
+        
         with open(self.db_path + "/id.txt", "w+") as f:
             f.write(str(self.current_id))
         
         data.to_netcdf(f"{self.db_path}/{filename}", auto_complex=True)
 
-        return self.current_id
+        return save_as_id
