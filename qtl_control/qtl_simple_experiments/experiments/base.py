@@ -54,7 +54,6 @@ class QTLQMSimpleStation:
             self.qm.close()
         atexit.register(exit_handler)
 
-
     def change_settings(self, new_settings):
         self.settings.update(new_settings)
         self.qm.close()
@@ -86,13 +85,16 @@ class QTLQMSimpleStation:
 
 class ExperimentResult:
     db = None
+    disc_0 = 0
+    disc_1 = 0
+
     def __init__(self, data, experiment):
         self.data = data
         self.experiment = experiment
         self.id = None # In the future to reanalyze data
 
     def analyze(self):
-        return self.experiment.analyze_data(self.data)
+        return self.experiment.analyze_data(self)
 
     def save(self):
         self.id = self.db.save_data(self.experiment.experiment_name, self.data, overwrite_id=self.id)
@@ -100,18 +102,36 @@ class ExperimentResult:
 
     def mag_phase_plot(self):
         fig, axs = plt.subplots(nrows=2, constrained_layout=True)
+
         np.abs(self.data["iq"]).plot(ax=axs[0])
-        xr.ufuncs.phase(self.data["iq"]).plot(ax=axs[1])
+        if len(axs[0].collections) == 0:
+            axs[0].set_ylabel(r"$|S|$ (V)")
+        else:
+            axs[0].collections[-1].colorbar.set_label(r"$|S|$ (V)")
+
+        xr.ufuncs.angle(self.data["iq"]).plot(ax=axs[1])
+        if len(axs[1].collections) == 0:
+            axs[1].set_ylabel(r"$angle S$ (rad)")
+        else:
+            axs[1].collections[-1].colorbar.set_label(r"$angle S$ (rad)")
+
         fig.suptitle(f"{self.id}_{self.experiment.experiment_name}")
-        return fig
+
+        return axs
+        
 
     def iq_plot(self):
         fig, axs = plt.subplots(constrained_layout=True)
         axs.scatter(
-            self.data["iq"].re,
+            self.data["iq"].real,
             self.data["iq"].imag
         )
-        return fig
+        axs.set_xlabel(r"$I$ (V)")
+        axs.set_ylabel(r"$Q$ (V)")
+        fig.suptitle(f"{self.id}_{self.experiment.experiment_name}")
+
+    def add_e_state(self):
+        self.data["e_state"] = ((self.data["iq"] - self.disc_0) * self.disc_1).real
 
 class QTLQMExperiment:
     """

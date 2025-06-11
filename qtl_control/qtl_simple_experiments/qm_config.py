@@ -62,6 +62,7 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
                 9: {"offset": 0.0},  # I qubit
                 10: {"offset": 0.0},  # Q qubit
                 3: {"offset": dc_volt},  # flux line
+                4: {"offset": 0.05},  # flux line
             },
             "digital_outputs": {
                 1: {},

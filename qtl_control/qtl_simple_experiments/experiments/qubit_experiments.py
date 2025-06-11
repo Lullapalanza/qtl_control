@@ -128,7 +128,7 @@ class Rabi(QTLQMExperiment):
     experiment_name = "QMRabi"
 
     def sweep_labels(self):
-        return ["ampltidue", ]
+        return ["amplitude", ]
 
     def get_program(self, Navg, sweeps, pulse_duration=100, wait_after=50000):
         amp_range = sweeps[0]
@@ -179,6 +179,45 @@ class Rabi(QTLQMExperiment):
         # === END QM program ===
 
         return rabi
+    
+    def analyze_data(self, result):
+        data = result.data
+        def rabi(amplitudes, frequency, a0, b0, a1, b1):
+            amplitudes_0 = amplitudes[0:len(amplitudes)//2]
+            amplitudes_1 = amplitudes[len(amplitudes)//2:]
+            return np.concatenate([
+                a0 * np.cos(2 * np.pi * 0.5 * amplitudes_0/frequency) + b0,
+                a1 * np.cos(2 * np.pi * 0.5 * amplitudes_1/frequency) + b1,
+            ])
+
+        p0 = [0.1, 1e-5, 2e-4, -1e-5, -5e-5]
+        res, _ = opt.curve_fit(
+            rabi,
+            np.concatenate([np.array(data.coords["amplitude"]), np.array(data.coords["amplitude"])]),
+            np.concatenate([np.array(data["iq"].real), np.array(data["iq"].imag)]),
+            p0=p0,
+            ftol=1e-12, xtol=1e-12, gtol=1e-12
+        )
+
+
+        rabi_f, a0, b0, a1, b1 = res
+        g_state_readout = (b0 + a0) + (b1 + a1)*1.j
+        e_state_readout = (b0 - a0) + (b1 - a1)*1.j
+
+        e_state_readout = e_state_readout - g_state_readout
+
+        data["e_state"] = (
+            (data["iq"] - g_state_readout) * np.conjugate(e_state_readout)/np.abs(e_state_readout)**2
+        ).real
+
+        fig, ax = plt.subplots(constrained_layout=True)
+        data["e_state"].plot(ax=ax)
+        fig.suptitle(f"{result.id}_{self.experiment_name}")
+
+        return rabi_f, g_state_readout, np.conjugate(e_state_readout)/np.abs(e_state_readout)**2
+
+
+
 
 class TimeRabi(QTLQMExperiment):
     experiment_name = "QMTimeRabi"
@@ -248,7 +287,7 @@ class RamseyF(QTLQMExperiment):
     def get_program(self, Navg, sweeps, wait_after=50000):
         delay_sweep = sweeps[1]
         qubit_IF = self.station.settings["qubit_frequency"] - self.station.settings["qubit_LO"]
-        detuning_sweep = qubit_IF - sweeps[0]
+        detuning_sweep = qubit_IF + sweeps[0]
         # === START QM program ===
         with program() as ramsey_prog:
             n = declare(int)  # QUA variable for the averaging loop
@@ -299,6 +338,42 @@ class RamseyF(QTLQMExperiment):
                 n_st.save("iteration")
             
         return ramsey_prog
+    
+    def analyze_data(self, result):
+        result.add_e_state()
+        
+        data = result.data
+        data.coords["time"] = data.coords["delay"] * 4
+
+        def exp_sine(time, detune, p0, tau, e0, e1):
+            return e0 + e1 * np.sin(2 * np.pi * detune * time/1e9 + p0) * np.exp(-(time/1e9)/tau)
+
+        fig, ax = plt.subplots(constrained_layout=True)
+        fig.suptitle(f"{result.id}_{self.experiment_name}")
+
+        detunes = []
+        
+        for detun in data.coords["detuning"]:
+            _data = data["e_state"].sel(detuning=detun)
+            _data.plot(ax=ax, ls="--", x="time")
+            p0 = [detun, 0, 1000e-9, 0.25, 1]
+            res, _ = opt.curve_fit(
+                exp_sine,
+                _data["time"],
+                _data,
+                p0=p0
+            )
+            ax.plot(_data["time"], exp_sine(_data["time"], *p0), color="gray")
+            ax.plot(_data["time"], exp_sine(_data["time"], *res))
+            detunes.append(res[0])
+            print(res)
+
+        if any([_det > sum(np.abs(data.coords["detuning"])) for _det in detunes]):
+            return self.station.settings["qubit_frequency"] + sum([-np.abs(_det) * np.sign(data_detung) for _det, data_detung in zip(detunes, data.coords["detuning"])]) * 2
+        else:
+            return self.station.settings["qubit_frequency"] + sum([-np.abs(_det) * np.sign(data_detung) for _det, data_detung in zip(detunes, data.coords["detuning"])]) * 0.5
+    
+            
 
 class T1(QTLQMExperiment):
     experiment_name = "QMT1"
@@ -307,7 +382,7 @@ class T1(QTLQMExperiment):
         return ["delay", ]
 
     def get_program(self, Navg, sweeps, wait_after=50000):
-        delay_sweep = sweeps[0] / 4
+        delay_sweep = sweeps[0]
         # === START QM program ===
         with program() as t1_program:
             n = declare(int)
@@ -320,19 +395,16 @@ class T1(QTLQMExperiment):
             Q_stream = declare_stream()
             n_stream = declare_stream()
 
-            update_frequency("qubit", qubit_IF)
-
-
             with for_(n, 0, n < Navg, n + 1):  # QUA for_ loop for averaging
                 with for_(*from_array(t, delay_sweep)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
                     # Play the qubit pulse with a variable amplitude (pre-factor to the pulse amplitude defined in the config)
-                    
                     
                     # play("x180" * amp(a), "qubit")
                     play("x180", "qubit")
                     # wait(t, "qubit")
                     wait(t, "qubit") # in units of 4 ns
                     # Align the two elements to measure after playing the qubit pulse.
+                    wait(400 * u.ns, "qubit")
                     align("qubit", "resonator")
                     # Measure the state of the resonator
                     # The integration weights have changed to maximize the SNR after having calibrated the IQ blobs.
@@ -353,14 +425,38 @@ class T1(QTLQMExperiment):
 
             with stream_processing():
                 # Cast the data into a 2D matrix, average the 2D matrices together and store the results on the OPX processor
-                I_stream.buffer(len(waits)).average().save("I")
-                Q_stream.buffer(len(waits)).average().save("Q")
+                I_stream.buffer(len(delay_sweep)).average().save("I")
+                Q_stream.buffer(len(delay_sweep)).average().save("Q")
                 n_stream.save("iteration")
         # === END QM program ===
         return t1_program
     
+    def analyze_data(self, result):
+        result.add_e_state()
+        data = result.data
+        data.coords["time"] = data.coords["delay"] * 4
+
+        def t1(wait, tau, e0, e1):
+            return np.exp(-(wait/1e9)/tau) * e1 + e0
+        
+        res, _ = opt.curve_fit(
+            t1,
+            data["time"],
+            data["e_state"],
+            p0=[10e-6, 0, 1]
+        )
+        
+        fig, ax = plt.subplots(constrained_layout=True)
+        fig.suptitle(f"{result.id}_{self.experiment_name}")
+
+        data["e_state"].plot(ax=ax, x="time")
+        ax.plot(data.coords["time"], t1(data.coords["time"], *res))
+        print(res)
+
+
+    
 class SingleShotReadout(QTLQMExperiment):
-    experiment_name = "QMSSH"
+    experiment_name = "QMSSR"
 
     def sweep_labels(self):
         return ["iteration", "state"]
@@ -403,3 +499,29 @@ class SingleShotReadout(QTLQMExperiment):
                 Q_st.buffer(len(sweep)).save_all("Q")
         
         return IQ_blobs
+    
+    def analyze_data(self, result):
+        fig, ax = plt.subplots(constrained_layout=True)
+        fig.suptitle(f"{result.id}_{self.experiment_name}")
+
+        ax.scatter(
+            result.data["iq"].sel(state="ground").real,
+            result.data["iq"].sel(state="ground").imag,
+            label="ground"
+        )
+        ax.scatter(
+            result.data["iq"].sel(state="excited").real,
+            result.data["iq"].sel(state="excited").imag,
+            label="excited"
+        )
+        ax.scatter(
+            result.data["iq"].sel(state="ground").real.mean(),
+            result.data["iq"].sel(state="ground").imag.mean(),
+            label="ground average"
+        )
+        ax.scatter(
+            result.data["iq"].sel(state="excited").real.mean(),
+            result.data["iq"].sel(state="excited").imag.mean(),
+            label="excited average"
+        )
+        ax.legend()
