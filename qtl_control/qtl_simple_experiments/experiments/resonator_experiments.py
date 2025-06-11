@@ -12,11 +12,14 @@ from qtl_control.qtl_simple_experiments.experiments.base import QTLQMExperiment
 def notch_res(f, f0, a, alpha, phi, kext, kint):
     return a * np.exp(1.j * alpha) * (1 - (np.exp(1.j * phi)/np.cos(phi)) * kext / (2j * (f - f0) + (kext + kint)))
 
-def notch_res_abs(f, f0, a, alpha, phi, kext, kint):
-    return np.abs(notch_res(f, f0, a, alpha, phi, kext, kint))
+def notch_res_abs(f, f0, a, phi, kext, kint):
+    return np.abs(notch_res(f, f0, a, 0, phi, kext, kint))
+
+def format_res(labels, values):
+    return f"Fit:\n" + "\n".join([f"{label}: {float(v):.3e}" for label, v in zip(labels, values)])
 
 class ReadoutResonatorSpectroscopy(QTLQMExperiment):
-    experiment_name = "QMReadoutSpec"
+    experiment_name = "QM-ReadoutResonatorSpectroscopy"
 
     def sweep_labels(self):
         return ["readout_frequency", ]
@@ -63,14 +66,14 @@ class ReadoutResonatorSpectroscopy(QTLQMExperiment):
             notch_res_abs,
             result.data.coords["readout_frequency"],
             np.abs(result.data["iq"]),
-            p0=[result.data.coords["readout_frequency"].mean(), np.abs(result.data["iq"]).max(), 0, 0, 1e5, 1e5]
+            p0=[result.data.coords["readout_frequency"].mean(), np.abs(result.data["iq"]).max(), 0, 1e5, 1e5]
         )
         if plot:
             axs = result.mag_phase_plot()
             axs[0].plot(
                 result.data.coords["readout_frequency"],
                 notch_res_abs(result.data.coords["readout_frequency"], *res),
-                label="\n".join([f"{_:.4e}" for _ in res])
+                label=format_res(["f0 (GHz)", "a (V)", "phi (rad)", "kext (Hz)", "kint (Hz)"], res)
             )
             axs[0].legend()
 
@@ -78,7 +81,7 @@ class ReadoutResonatorSpectroscopy(QTLQMExperiment):
 
 
 class ReadoutFluxSpectroscopy(QTLQMExperiment):
-    experiment_name = "QMReadoutFluxSpectroscopy"
+    experiment_name = "QM-ReadoutFluxSpectroscopy"
 
     def sweep_labels(self):
         return ["amplitude", "readout_frequency"]
@@ -127,7 +130,7 @@ class ReadoutFluxSpectroscopy(QTLQMExperiment):
         
         return resonator_spec
     
-    def analyze_data(self, result):
+    def analyze_data(self, result, p0=None):
         data = result.data
 
         frequencies = []
@@ -138,35 +141,40 @@ class ReadoutFluxSpectroscopy(QTLQMExperiment):
                 notch_res_abs,
                 data_slice["readout_frequency"],
                 data_slice,
-                p0=[float(data_slice["readout_frequency"].mean()), 0.001, 0, 0, 10e6, 10e6]
+                p0=[float(data_slice["readout_frequency"].mean()), 0.001, 0, 10e6, 10e6]
             )
             frequencies.append(res[0])
 
         def cosine_dep(v, period, offset, a, b):
             return a * np.cos(2 * np.pi * (v-offset)/period) + b
 
-        p0 = [0.4, -0.2, 0.05e6, np.mean(frequencies)]
+        p0 = p0 or [0.4, 0, 1e6, np.mean(frequencies)]
         res, _ = opt.curve_fit(
             cosine_dep,
             amplitudes,
             frequencies,
             bounds=(
-                [0.001, -np.pi, 0, float(data_slice["readout_frequency"].min())],
-                [100, np.pi, 1e9, float(data_slice["readout_frequency"].max())]
+                [0.0001, -1, 0, float(data_slice["readout_frequency"].min())],
+                [1, 1, 1e9, float(data_slice["readout_frequency"].max())]
             ),
             p0=p0,
             ftol=1e-10, xtol=1e-10, gtol=1e-10
         )
-        print(res)
 
-        axs = result.mag_phase_plot()
-        axs[0].scatter(frequencies, amplitudes, )
-        axs[0].plot(cosine_dep(amplitudes, *res), amplitudes, label=res)
+        axs = result.mag_phase_plot(y_axis="readout_frequency")
+        axs[0].scatter(amplitudes, frequencies)
+        axs[0].plot(
+            amplitudes,
+            cosine_dep(amplitudes, *res),
+            label=format_res(["period (V)", "offset (V)", "a", "b"], res)
+        )
 
-        return res[1]
+        axs[0].legend(bbox_to_anchor=(1.75, 0.8))
+
+        return res
 
 class PunchOut(QTLQMExperiment):
-    experiment_name = "QMPunchOut"
+    experiment_name = "QM-PunchOut"
 
     def sweep_labels(self):
         return ["readout_frequency", "amplitude"]
@@ -213,7 +221,7 @@ class PunchOut(QTLQMExperiment):
 
 
 class DispersiveShift(QTLQMExperiment):
-    experiment_name = "QMDispersiveShift"
+    experiment_name = "QM-DispersiveShift"
 
     def sweep_labels(self):
         return ["readout_frequency", "state"]
@@ -271,15 +279,15 @@ class DispersiveShift(QTLQMExperiment):
             notch_res_abs,
             result.data.coords["readout_frequency"],
             np.abs(result.data["iq"].sel(state="ground")),
-            p0=[result.data.coords["readout_frequency"].mean(), np.abs(result.data["iq"]).max(), 0, 0, 1e5, 1e5]
+            p0=[result.data.coords["readout_frequency"].mean(), np.abs(result.data["iq"]).max(), 0, 1e5, 1e5]
         )
         ax.plot(
             result.data.coords["readout_frequency"],
-            np.abs(result.data["iq"].sel(state="ground")), label="ground"
+            np.abs(result.data["iq"].sel(state="ground")), label="ground state"
         )
         ax.plot(
             result.data.coords["readout_frequency"],
-            notch_res_abs(result.data.coords["readout_frequency"], *res0), label="ground fit"
+            notch_res_abs(result.data.coords["readout_frequency"], *res0), label="ground state fit"
             # label="\n".join([f"{_:.4e}" for _ in res])
         )
 
@@ -287,7 +295,7 @@ class DispersiveShift(QTLQMExperiment):
             notch_res_abs,
             result.data.coords["readout_frequency"],
             np.abs(result.data["iq"].sel(state="excited")),
-            p0=[result.data.coords["readout_frequency"].mean(), np.abs(result.data["iq"]).max(), 0, 0, 1e5, 1e5]
+            p0=[result.data.coords["readout_frequency"].mean(), np.abs(result.data["iq"]).max(), 0, 1e5, 1e5]
         )
         ax.plot(
             result.data.coords["readout_frequency"],
@@ -295,11 +303,11 @@ class DispersiveShift(QTLQMExperiment):
         )
         ax.plot(
             result.data.coords["readout_frequency"],
-            notch_res_abs(result.data.coords["readout_frequency"], *res1), label="excited fit"
+            notch_res_abs(result.data.coords["readout_frequency"], *res1), label=f"excited state fit\nDispersive shift: {res1[0] - res0[0]:.3e}"
             # label="\n".join([f"{_:.4e}" for _ in res])
         )
         ax.legend()
-        ax.set_ylabel("$|S|$")
+        ax.set_ylabel(r"$Magnitude, \ |S|$ (V)")
         ax.set_xlabel("Readout_frequency")
 
         print(res1[0] - res0[0])

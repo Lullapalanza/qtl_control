@@ -1,15 +1,11 @@
 import os
-import json
+import fnmatch
+import xarray as xr
 
 from datetime import datetime
-from json import JSONEncoder
 
-class ComplexJsonEncoder(JSONEncoder):
-    def default(self, o):
-        if isinstance(o, complex):
-            return (o.real, o.imag)
-        
-        return super().default(o)
+from qtl_control.qtl_simple_experiments.experiments import experiment_dict
+from qtl_control.qtl_simple_experiments.experiments.base import ExperimentResult
 
 class FileSystemDB:
     """
@@ -38,7 +34,7 @@ class FileSystemDB:
         else:
             save_as_id = overwrite_id
 
-        filename = f"{save_as_id}_{experiment_name}_{datetime.today().strftime(r'%Y_%m_%d')}.nc"
+        filename = f"{save_as_id}_{experiment_name}_{datetime.today().strftime(r'%Y-%m-%d-%H-%M-%S')}.nc"
         
         with open(self.db_path + "/id.txt", "w+") as f:
             f.write(str(self.current_id))
@@ -46,3 +42,26 @@ class FileSystemDB:
         data.to_netcdf(f"{self.db_path}/{filename}", auto_complex=True)
 
         return save_as_id
+
+    def load_result(self, id):
+        _id = None
+        for file in os.listdir(f"{self.db_path}/"):
+            if fnmatch.fnmatch(file, f"{id}_*"):
+                print(f"Found {file}")
+                _id, experiment_name, timestamp = file.split("_")
+                break
+        
+        if _id is None:
+            print("No file found")
+            return
+        
+        experiment = experiment_dict.get(experiment_name)
+        if experiment is None:
+            print(f"{experiment_name} not registered")
+            return
+        
+        return ExperimentResult(
+            xr.open_dataset(f"{self.db_path}/{file}", auto_complex=True),
+            experiment(),
+            _id
+        )

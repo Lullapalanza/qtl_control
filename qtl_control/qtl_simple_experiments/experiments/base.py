@@ -84,51 +84,51 @@ class QTLQMSimpleStation:
 
 
 class ExperimentResult:
-    db = None
     disc_0 = 0
     disc_1 = 0
 
-    def __init__(self, data, experiment):
+    def __init__(self, data, experiment, existing_id=None):
         self.data = data
         self.experiment = experiment
-        self.id = None # In the future to reanalyze data
+        self.id = existing_id
 
-    def analyze(self):
-        return self.experiment.analyze_data(self)
+    def analyze(self, **kwargs):
+        return self.experiment.analyze_data(self, **kwargs)
 
     def save(self):
         self.id = self.db.save_data(self.experiment.experiment_name, self.data, overwrite_id=self.id)
         print(f"Saved with ID {self.id}")
 
-    def mag_phase_plot(self):
-        fig, axs = plt.subplots(nrows=2, constrained_layout=True)
-
-        np.abs(self.data["iq"]).plot(ax=axs[0])
-        if len(axs[0].collections) == 0:
-            axs[0].set_ylabel(r"$|S|$ (V)")
-        else:
-            axs[0].collections[-1].colorbar.set_label(r"$|S|$ (V)")
-
-        xr.ufuncs.angle(self.data["iq"]).plot(ax=axs[1])
-        if len(axs[1].collections) == 0:
-            axs[1].set_ylabel(r"$angle S$ (rad)")
-        else:
-            axs[1].collections[-1].colorbar.set_label(r"$angle S$ (rad)")
-
+    def mag_phase_plot(self, y_axis=None):
+        fig, axs = plt.subplots(nrows=2)#, constrained_layout=True)
         fig.suptitle(f"{self.id}_{self.experiment.experiment_name}")
+        plt.tight_layout()
+
+        np.abs(self.data["iq"]).plot(ax=axs[0], y=y_axis)
+        if len(axs[0].collections) == 0:
+            axs[0].set_ylabel(r"$Magnitude, \ |S|$ (V)")
+        else:
+            axs[0].collections[-1].colorbar.set_label(r"$Magnitude, \ |S|$ (V)")
+        axs[0].set_xlabel("")
+
+        xr.ufuncs.angle(self.data["iq"]).plot(ax=axs[1], y=y_axis)
+        if len(axs[1].collections) == 0:
+            axs[1].set_ylabel(r"$Phase \ S$ (rad)")
+        else:
+            axs[1].collections[-1].colorbar.set_label(r"$Phase \ S$ (rad)")
 
         return axs
-        
 
     def iq_plot(self):
         fig, axs = plt.subplots(constrained_layout=True)
+        fig.suptitle(f"{self.id}_{self.experiment.experiment_name}")
+
         axs.scatter(
             self.data["iq"].real,
             self.data["iq"].imag
         )
         axs.set_xlabel(r"$I$ (V)")
         axs.set_ylabel(r"$Q$ (V)")
-        fig.suptitle(f"{self.id}_{self.experiment.experiment_name}")
 
     def add_e_state(self):
         self.data["e_state"] = ((self.data["iq"] - self.disc_0) * self.disc_1).real
@@ -143,10 +143,14 @@ class QTLQMExperiment:
         program = self.get_program(Navg, sweeps, **kwargs)
         results = self.station.execute(program, Navg)
 
+        sweep_labels = [sl[0] for sl in self.sweep_labels()]
         ds = xr.Dataset(
-            data_vars={"iq": (self.sweep_labels(), results)},
-            coords={label: values for label, values in zip(self.sweep_labels(), sweeps)}
+            data_vars={"iq": (sweep_labels, results)},
+            coords={sweep_label: values for sweep_label, values in zip(sweep_labels, sweeps)}
         )
+
+        for label, unit in self.sweep_labels():
+            ds[label].attrs["units"] = unit
 
         exp_res = ExperimentResult(ds, self)
 
