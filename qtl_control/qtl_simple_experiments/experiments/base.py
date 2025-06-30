@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import xarray as xr
 import numpy as np
 
+from dataclasses import dataclass
+
 from qm.qua import *
 from qualang_tools.loops import from_array
 from qm import QuantumMachinesManager
@@ -21,6 +23,7 @@ def kill_handler(*args):
 
 signal.signal(signal.SIGINT, kill_handler)
 signal.signal(signal.SIGTERM, kill_handler)
+
 
 
 class QTLQMSimpleStation:

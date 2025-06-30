@@ -33,7 +33,7 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
                     "gain": -20, # -20 to 20 in 0.5 steps
                     "output_mode": "always_on",
                 },
-                5: {
+                4: {
                     "LO_frequency": qubit_LO,
                     "LO_source": "internal",
                     "output_mode": "always_on",
@@ -59,10 +59,10 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
             "analog_outputs": {
                 1: {"offset": 0.0},  # I resonator
                 2: {"offset": 0.0},  # Q resonators
-                9: {"offset": 0.0},  # I qubit
-                10: {"offset": 0.0},  # Q qubit
-                3: {"offset": dc_volt},  # flux line
-                4: {"offset": 0.05},  # flux line
+                7: {"offset": 0.0},  # I qubit
+                8: {"offset": 0.0},  # Q qubit
+                # 3: {"offset": dc_volt},  # flux line
+                # 4: {"offset": 0.05},  # flux line
             },
             "digital_outputs": {
                 1: {},
@@ -76,7 +76,7 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
 
     ELEMENTS_CONFIG = {
         "qubit": {
-            "RF_inputs": {"port": ("oct1", 5)},
+            "RF_inputs": {"port": ("oct1", 4)},
             "intermediate_frequency": qubit_IF,
             "operations": {
                 "cw": "const_pulse",
@@ -103,14 +103,14 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
             "time_of_flight": time_of_flight,
             "smearing": 0,
         },
-        "flux_line": {
-            "singleInput": {
-                "port": ("con1", 3),
-            },
-            "operations": {
-                "const": "const_flux_pulse",
-            },
-        },
+        # "flux_line": {
+        #     "singleInput": {
+        #         "port": ("con1", 3),
+        #     },
+        #     "operations": {
+        #         "const": "const_flux_pulse",
+        #     },
+        # },
     }
 
     CONST_LEN = X180_duration

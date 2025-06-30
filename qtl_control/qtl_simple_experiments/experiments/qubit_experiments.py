@@ -354,6 +354,7 @@ class Ramsey2F(QTLQMExperiment):
     
     def analyze_data(self, result):
         result.add_e_state()
+        data = result.data
 
         def exp_sine(time, detune, p0, tau, e0, e1):
             return e0 + e1 * np.sin(2 * np.pi * detune * time/1e9 + p0) * np.exp(-(time/1e9)/tau)
@@ -382,7 +383,7 @@ class Ramsey2F(QTLQMExperiment):
         ax.legend()
 
         if any([_det > sum(np.abs(data.coords["detuning"])) for _det in detunes]):
-            return self.station.settings["qubit_frequency"] + sum([-np.abs(_det) * np.sign(data_detung) for _det, data_detung in zip(detunes, data.coords["detuning"])]) * 2
+            return self.station.settings["qubit_frequency"] + np.sign(data.coords["detuning"][0] - data.coords["detuning"][1]) * sum([np.abs(_det) for _det in detunes]) / 2
         else:
             return self.station.settings["qubit_frequency"] + sum([-np.abs(_det) * np.sign(data_detung) for _det, data_detung in zip(detunes, data.coords["detuning"])]) * 0.5
     

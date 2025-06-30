@@ -22,7 +22,7 @@ class ReadoutResonatorSpectroscopy(QTLQMExperiment):
     experiment_name = "QM-ReadoutResonatorSpectroscopy"
 
     def sweep_labels(self):
-        return ["readout_frequency", ]
+        return [("readout_frequency", "Hz"), ]
 
     def get_program(self, Navg, sweeps, wait_after=1000):
         sweep = sweeps[0] - self.station.settings["readout_LO"]
@@ -84,7 +84,7 @@ class ReadoutFluxSpectroscopy(QTLQMExperiment):
     experiment_name = "QM-ReadoutFluxSpectroscopy"
 
     def sweep_labels(self):
-        return ["amplitude", "readout_frequency"]
+        return [("amplitude", "arb"), ("readout_frequency", "Hz")]
 
     def get_program(self, Navg, sweeps, wait_after=1000):
         amp_sweep = sweeps[0]
@@ -224,7 +224,7 @@ class DispersiveShift(QTLQMExperiment):
     experiment_name = "QM-DispersiveShift"
 
     def sweep_labels(self):
-        return ["readout_frequency", "state"]
+        return [("readout_frequency", "Hz"), ("state", "")]
 
     def get_program(self, Navg, sweeps, wait_after=10000):
         sweep = sweeps[0] - self.station.settings["readout_LO"]
