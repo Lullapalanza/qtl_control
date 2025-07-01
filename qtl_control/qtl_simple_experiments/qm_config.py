@@ -5,51 +5,34 @@ from qualang_tools.units import unit
 u = unit(coerce_to_integer=True)
 
 
-def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
-    readout_LO = settings["readout_LO"]
-    readout_IF = settings["readout_frequency"] - readout_LO
-    readout_amp = settings["readout_amp"]
-    readout_len = settings["readout_len"]
+def generate_config(
+    elements_to_run,
+    rf_output_channels,
+    rf_input_channels,
+    analog_output_channels,
+    element_conn
+    ):
 
-    qubit_LO = settings["qubit_LO"]
-    qubit_IF = settings["qubit_frequency"] - qubit_LO
-
-
-    X180_duration = settings["X180_duration"]
-    X180_amplitude = settings["X180_amplitude"]
-
-    dc_volt = settings["dc_volt"]
-
-    time_of_flight = 200
+    # TODO: FIXME
     octave_label = "oct1"
+    time_of_flight = 200
 
     OCTAVE_CONFIG = {
         octave_label: {
             "connectivity": "con1", # Default connectivity/magic,
             "RF_outputs": {
-                1: {
-                    "LO_frequency": readout_LO,
-                    "LO_source": "internal",
-                    "gain": -20, # -20 to 20 in 0.5 steps
+                int(id.strip("RF")): {
+                    "LO_frequency": rf_ch.LO_frequency,
+                    "gain": rf_ch.gain,
                     "output_mode": "always_on",
-                },
-                4: {
-                    "LO_frequency": qubit_LO,
-                    "LO_source": "internal",
-                    "output_mode": "always_on",
-                    "gain": -20, # -20, # -20,
-                },
-                # 2: {...},
-                # 3: {...},
-                # 4: {...},
-                # 5: {...}
+                    "LO_source": "internal"
+                } for id, rf_ch in rf_output_channels.items()
             },
             "RF_inputs": {
-                1: {
-                    "LO_frequency": readout_LO, #
-                    "LO_source": "internal", #
-                },
-                # 2: {...}
+                int(id.strip("RF_").strip("_in")): {
+                    "LO_frequency": rf_ch.LO_frequency,
+                    "LO_source": "internal"
+                } for id, rf_ch in rf_input_channels.items()
             }
         }
     }
@@ -57,66 +40,104 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
     CONTROLLER_CONFIG = {
         "con1": {
             "analog_outputs": {
-                1: {"offset": 0.0},  # I resonator
-                2: {"offset": 0.0},  # Q resonators
-                7: {"offset": 0.0},  # I qubit
-                8: {"offset": 0.0},  # Q qubit
-                # 3: {"offset": dc_volt},  # flux line
-                # 4: {"offset": 0.05},  # flux line
+                id: {"offset": config_out.dc_volt if (config_out:=analog_output_channels.get(f"AO{id}")) else 0} for id in range(1, 11)
             },
             "digital_outputs": {
                 1: {},
             },
             "analog_inputs": {
-                1: {"offset": 0.0, "gain_db": 20},# 20},  # I from down-conversion
-                2: {"offset": 0.0, "gain_db": 20},# 20},  # Q from down-conversion
+                1: {"offset": 0.0, "gain_db": 20}, # 20},  # I from down-conversion
+                2: {"offset": 0.0, "gain_db": 20}, # 20},  # Q from down-conversion
             },
         },
     }
 
+    OPERATIONS = {
+        "cw": "const_pulse",
+        "saturation": "saturation_pulse",
+        "pi": "pi_pulse",
+        "pi_half": "pi_half_pulse",
+        "x90": "x90_pulse",
+        "x180": "x180_pulse",
+        "-x90": "-x90_pulse",
+        "y90": "y90_pulse",
+        "y180": "y180_pulse",
+        "-y90": "-y90_pulse",
+        "gauss": "gauss_pulse"
+    }
+
+    # ADD DRIVES
     ELEMENTS_CONFIG = {
-        "qubit": {
-            "RF_inputs": {"port": ("oct1", 4)},
-            "intermediate_frequency": qubit_IF,
-            "operations": {
-                "cw": "const_pulse",
-                "saturation": "saturation_pulse",
-                "pi": "pi_pulse",
-                "pi_half": "pi_half_pulse",
-                "x90": "x90_pulse",
-                "x180": "x180_pulse",
-                "-x90": "-x90_pulse",
-                "y90": "y90_pulse",
-                "y180": "y180_pulse",
-                "-y90": "-y90_pulse",
-                "gauss": "gauss_pulse"
-            },
-        },
-        "resonator": {
+        qb_id: {
+            "RF_inputs": {"port": ("oct1", int(transmon.drive.channel_id.strip("RF")))},
+            "intermediate_frequency": transmon.frequency - transmon.drive.LO_frequency,
+            "operations": OPERATIONS
+        } for qb_id, transmon in element_conn.items()
+    }
+    # ADD READOUT
+    ELEMENTS_CONFIG.update({
+        f"resonator_{element}": {
             "RF_inputs": {"port": ("oct1", 1)},
             "RF_outputs": {"port": ("oct1", 1)},
-            "intermediate_frequency": readout_IF,
+            "intermediate_frequency": element_conn[element].readout_frequency - OCTAVE_CONFIG[octave_label]["RF_outputs"][1]["LO_frequency"],
             "operations": {
                 "cw": "const_pulse",
-                "readout": "readout_pulse",
+                "readout": f"readout_pulse_{element}",
             },
             "time_of_flight": time_of_flight,
             "smearing": 0,
-        },
-        # "flux_line": {
-        #     "singleInput": {
-        #         "port": ("con1", 3),
-        #     },
-        #     "operations": {
-        #         "const": "const_flux_pulse",
-        #     },
-        # },
-    }
+        } for element in elements_to_run
+    })
+    ELEMENTS_CONFIG.update({
+        f"flux_{element}": {
+            "singleInput": {"port": ("con1", int(element_conn[element].flux.channel_id.strip("AO")))}
+        } for element in elements_to_run if element_conn[element].flux is not None
+    })
 
-    CONST_LEN = X180_duration
-    CONST_FLUX_LEN = X180_duration
+
+    # ELEMENTS_CONFIG = {
+    #     "qubit": {
+    #         "RF_inputs": {"port": ("oct1", 4)},
+    #         "intermediate_frequency": qubit_IF,
+    #         "operations": {
+    #             "cw": "const_pulse",
+    #             "saturation": "saturation_pulse",
+    #             "pi": "pi_pulse",
+    #             "pi_half": "pi_half_pulse",
+    #             "x90": "x90_pulse",
+    #             "x180": "x180_pulse",
+    #             "-x90": "-x90_pulse",
+    #             "y90": "y90_pulse",
+    #             "y180": "y180_pulse",
+    #             "-y90": "-y90_pulse",
+    #             "gauss": "gauss_pulse"
+    #         },
+    #     },
+    #     "resonator": {
+    #         "RF_inputs": {"port": ("oct1", 1)},
+    #         "RF_outputs": {"port": ("oct1", 1)},
+    #         "intermediate_frequency": readout_IF,
+    #         "operations": {
+    #             "cw": "const_pulse",
+    #             "readout": "readout_pulse",
+    #         },
+    #         "time_of_flight": time_of_flight,
+    #         "smearing": 0,
+    #     },
+    #     # "flux_line": {
+    #     #     "singleInput": {
+    #     #         "port": ("con1", 3),
+    #     #     },
+    #     #     "operations": {
+    #     #         "const": "const_flux_pulse",
+    #     #     },
+    #     # },
+    # }
+
+    CONST_LEN = 100 # X180_duration
+    CONST_FLUX_LEN = 100 # X180_duration
     SATURATION_LEN = 1000
-    SQ_PULSE_LEN = X180_duration
+    SQ_PULSE_LEN = 100 # X180_duration
 
     CONST_AMP = 0.45
     SATURATION_AMP = 0.45
@@ -139,7 +160,7 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
         )
     )
 
-
+    X180_amplitude = 1
     WAVEFORMS_CONFIG = {
         "const_wf": {"type": "constant", "sample": CONST_AMP},
         "saturation_drive_wf": {"type": "constant", "sample": SATURATION_AMP},
@@ -162,8 +183,10 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
         "y90_Q_wf": {"type": "arbitrary", "samples": (SQ_gaussian*X180_amplitude/2).tolist()},
         "minus_y90_I_wf": {"type": "arbitrary", "samples": (SQ_gaus_der*X180_amplitude/2).tolist()},
         "minus_y90_Q_wf": {"type": "arbitrary", "samples": (-SQ_gaussian*X180_amplitude/2).tolist()},
-        "readout_wf": {"type": "constant", "sample": readout_amp},
     }
+    WAVEFORMS_CONFIG.update({
+        f"readout_wf_{id}": {"type": "constant", "sample": element_conn[id].readout_amplitude} for id in elements_to_run
+    })
 
     config = {
         "version": 1,
@@ -270,45 +293,83 @@ def generate_config(settings): # readout_LO_frequency=ro_LO, readout_amp=0.01):
                     "Q": "minus_y90_Q_wf",
                 },
             },
-            "readout_pulse": {
-                "operation": "measurement",
-                "length": readout_len,
-                "waveforms": {
-                    "I": "readout_wf",
-                    "Q": "zero_wf",
-                },
-                "integration_weights": {
-                    "cos": "cosine_weights",
-                    "sin": "sine_weights",
-                    "minus_sin": "minus_sine_weights",
-                    "rotated_cos": "rotated_cosine_weights",
-                    "rotated_sin": "rotated_sine_weights",
-                    "rotated_minus_sin": "rotated_minus_sine_weights",
-                    "opt_cos": "opt_cosine_weights",
-                    "opt_sin": "opt_sine_weights",
-                    "opt_minus_sin": "opt_minus_sine_weights",
-                },
-                "digital_marker": "ON",
-            },
+            # "readout_pulse": {
+            #     "operation": "measurement",
+            #     "length": readout_len,
+            #     "waveforms": {
+            #         "I": "readout_wf",
+            #         "Q": "zero_wf",
+            #     },
+            #     "integration_weights": {
+            #         "cos": "cosine_weights",
+            #         "sin": "sine_weights",
+            #         "minus_sin": "minus_sine_weights",
+            #         "rotated_cos": "rotated_cosine_weights",
+            #         "rotated_sin": "rotated_sine_weights",
+            #         "rotated_minus_sin": "rotated_minus_sine_weights",
+            #         "opt_cos": "opt_cosine_weights",
+            #         "opt_sin": "opt_sine_weights",
+            #         "opt_minus_sin": "opt_minus_sine_weights",
+            #     },
+            #     "digital_marker": "ON",
+            # },
         },
+        "integration_weights": {},
+        #     "cosine_weights": {
+        #         "cosine": [(1.0, readout_len)],
+        #         "sine": [(0.0, readout_len)],
+        #     },
+        #     "sine_weights": {
+        #         "cosine": [(0.0, readout_len)],
+        #         "sine": [(1.0, readout_len)],
+        #     },
+        #     "minus_sine_weights": {
+        #         "cosine": [(0.0, readout_len)],
+        #         "sine": [(-1.0, readout_len)],
+        #     }
+        # },
         "waveforms": WAVEFORMS_CONFIG,
         "digital_waveforms": {
             "ON": {"samples": [(1, 0)]},
         },
-        "integration_weights": {
-            "cosine_weights": {
-                "cosine": [(1.0, readout_len)],
-                "sine": [(0.0, readout_len)],
-            },
-            "sine_weights": {
-                "cosine": [(0.0, readout_len)],
-                "sine": [(1.0, readout_len)],
-            },
-            "minus_sine_weights": {
-                "cosine": [(0.0, readout_len)],
-                "sine": [(-1.0, readout_len)],
-            }
-        },
     }
+
+    for element in elements_to_run:
+        config["pulses"].update({
+            f"readout_pulse_{element}": {
+                "operation": "measurement",
+                "length": element_conn[element].readout_len,
+                "waveforms": {
+                    "I": f"readout_wf_{element}",
+                    "Q": "zero_wf",
+                },
+                "integration_weights": {
+                    "cos": f"cosine_weights_{element}",
+                    "sin": f"sine_weights_{element}",
+                    "minus_sin": f"minus_sine_weights_{element}",
+                    # "rotated_cos": "rotated_cosine_weights",
+                    # "rotated_sin": "rotated_sine_weights",
+                    # "rotated_minus_sin": "rotated_minus_sine_weights",
+                    # "opt_cos": "opt_cosine_weights",
+                    # "opt_sin": "opt_sine_weights",
+                    # "opt_minus_sin": "opt_minus_sine_weights",
+                },
+                "digital_marker": "ON",
+            }
+        })
+        config["integration_weights"].update({
+            f"cosine_weights_{element}": {
+                "cosine": [(1.0, element_conn[element].readout_len)],
+                "sine": [(0.0, element_conn[element].readout_len)],
+            },
+            f"sine_weights_{element}": {
+                "cosine": [(0.0, element_conn[element].readout_len)],
+                "sine": [(1.0, element_conn[element].readout_len)],
+            },
+            f"minus_sine_weights_{element}": {
+                "cosine": [(0.0, element_conn[element].readout_len)],
+                "sine": [(-1.0, element_conn[element].readout_len)],
+            }     
+        })
 
     return config

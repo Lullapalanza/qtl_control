@@ -5,7 +5,8 @@ from .qubit_experiments import (
     TimeRabi,
     Ramsey2F,
     T1,
-    SingleShotReadout
+    SingleShotReadout,
+    ReadoutOptimization,
 )
 from .resonator_experiments import (
     ReadoutResonatorSpectroscopy,
@@ -22,6 +23,7 @@ experiment_list = [
     Ramsey2F,
     T1,
     SingleShotReadout,
+    ReadoutOptimization,
 
     ReadoutResonatorSpectroscopy,
     ReadoutFluxSpectroscopy,

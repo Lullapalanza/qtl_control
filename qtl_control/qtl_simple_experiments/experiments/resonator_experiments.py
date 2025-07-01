@@ -18,14 +18,29 @@ def notch_res_abs(f, f0, a, phi, kext, kint):
 def format_res(labels, values):
     return f"Fit:\n" + "\n".join([f"{label}: {float(v):.3e}" for label, v in zip(labels, values)])
 
+def standard_readout(element, I, I_st, Q, Q_st, wait_after):
+    measure(
+        "readout",
+        element,
+        None,
+        dual_demod.full("cos", "sin", I),
+        dual_demod.full("minus_sin", "cos", Q),
+    )
+    # Wait for the resonator to deplete
+    wait(wait_after//4, element)
+    # Save the 'I' & 'Q' quadratures to their respective streams
+    save(I, I_st)
+    save(Q, Q_st)
+
+
 class ReadoutResonatorSpectroscopy(QTLQMExperiment):
     experiment_name = "QM-ReadoutResonatorSpectroscopy"
 
     def sweep_labels(self):
         return [("readout_frequency", "Hz"), ]
 
-    def get_program(self, Navg, sweeps, wait_after=1000):
-        sweep = sweeps[0] - self.station.settings["readout_LO"]
+    def get_program(self, element, Navg, sweeps, wait_after=1000):
+        sweep = sweeps[0] - self.station.pl_config["PL"].LO_frequency
         with program() as resonator_spec:
             n = declare(int)  # QUA variable for the averaging loop
             f = declare(int)  # QUA variable for the readout frequency
@@ -37,20 +52,9 @@ class ReadoutResonatorSpectroscopy(QTLQMExperiment):
 
             with for_(n, 0, n < Navg, n + 1):  # QUA for_ loop for averaging
                 with for_(*from_array(f, sweep)):  # QUA for_ loop for sweeping the frequency
-                    update_frequency("resonator", f)
+                    update_frequency(f"resonator_{element}", f)
                     # Measure the resonator (send a readout pulse and demodulate the signals to get the 'I' & 'Q' quadratures)
-                    measure(
-                        "readout",
-                        "resonator",
-                        None,
-                        dual_demod.full("cos", "sin", I),
-                        dual_demod.full("minus_sin", "cos", Q),
-                    )
-                    # Wait for the resonator to deplete
-                    wait(wait_after//4, "resonator")
-                    # Save the 'I' & 'Q' quadratures to their respective streams
-                    save(I, I_st)
-                    save(Q, Q_st)
+                    standard_readout(f"resonator_{element}", I, I_st, Q, Q_st, wait_after)
                 # Save the averaging iteration to get the progress bar
                 save(n, n_st)
 
@@ -86,9 +90,9 @@ class ReadoutFluxSpectroscopy(QTLQMExperiment):
     def sweep_labels(self):
         return [("amplitude", "arb"), ("readout_frequency", "Hz")]
 
-    def get_program(self, Navg, sweeps, wait_after=1000):
+    def get_program(self, element, Navg, sweeps, wait_after=1000):
         amp_sweep = sweeps[0]
-        if_sweep = sweeps[1] - self.station.settings["readout_LO"]
+        if_sweep = sweeps[1] - self.station.full_config["PL"].LO_frequency
         with program() as resonator_spec:
             n = declare(int)  # QUA variable for the averaging loop
             f = declare(int)  # QUA variable for the readout frequency
@@ -101,27 +105,14 @@ class ReadoutFluxSpectroscopy(QTLQMExperiment):
 
             with for_(n, 0, n < Navg, n + 1):  # QUA for_ loop for averaging
                 with for_(*from_array(a, amp_sweep)):  # QUA for_ loop for sweeping the frequency
-                    set_dc_offset("flux_line", "single", a)
+                    set_dc_offset(f"flux_{element}", "single", a)
                     with for_(*from_array(f, if_sweep)):  # QUA for_ loop for sweeping the frequency
-                        update_frequency("resonator", f)
+                        update_frequency(f"resonator_{element}", f)
                         # Measure the resonator (send a readout pulse and demodulate the signals to get the 'I' & 'Q' quadratures)
-                        measure(
-                            "readout",
-                            "resonator",
-                            None,
-                            dual_demod.full("cos", "sin", I),
-                            dual_demod.full("minus_sin", "cos", Q),
-                        )
-                        # Wait for the resonator to deplete
-                        wait(wait_after//4, "resonator")
-                        # Save the 'I' & 'Q' quadratures to their respective streams
-                        save(I, I_st)
-                        save(Q, Q_st)
+                        standard_readout(f"resonator_{element}", I, I_st, Q, Q_st, wait_after)
+
                     # Save the averaging iteration to get the progress bar
                 save(n, n_st)
-
-
-            set_dc_offset("flux_line", "single", 0)
 
             with stream_processing():
                 I_st.buffer(len(if_sweep)).buffer(len(amp_sweep)).average().save("I")
@@ -179,8 +170,8 @@ class PunchOut(QTLQMExperiment):
     def sweep_labels(self):
         return ["readout_frequency", "amplitude"]
 
-    def get_program(self, Navg, sweeps, wait_after=1000):
-        freq_sweep = sweeps[0] - self.station.settings["readout_LO"]
+    def get_program(self, element, Navg, sweeps, wait_after=1000):
+        freq_sweep = sweeps[0] - self.station.full_config["PL"].LO_frequency
         amplitude_sweep = sweeps[1]
         with program() as resonator_spec:
             n = declare(int)  # QUA variable for the averaging loop
@@ -194,18 +185,18 @@ class PunchOut(QTLQMExperiment):
 
             with for_(n, 0, n < Navg, n + 1):  # QUA for_ loop for averaging
                 with for_(*from_array(f, freq_sweep)):  # QUA for_ loop for sweeping the frequency
-                    update_frequency("resonator", f)
+                    update_frequency(f"resonator_{element}", f)
                     with for_each_(a, amplitude_sweep):
                     # Measure the resonator (send a readout pulse and demodulate the signals to get the 'I' & 'Q' quadratures)
                         measure(
                             "readout" * amp(a),
-                            "resonator",
+                            f"resonator_{element}",
                             None,
                             dual_demod.full("cos", "sin", I),
                             dual_demod.full("minus_sin", "cos", Q),
                         )
                         # Wait for the resonator to deplete
-                        wait(wait_after//4, "resonator")
+                        wait(wait_after//4, f"resonator_{element}")
                         # Save the 'I' & 'Q' quadratures to their respective streams
                         save(I, I_st)
                         save(Q, Q_st)
@@ -226,8 +217,8 @@ class DispersiveShift(QTLQMExperiment):
     def sweep_labels(self):
         return [("readout_frequency", "Hz"), ("state", "")]
 
-    def get_program(self, Navg, sweeps, wait_after=10000):
-        sweep = sweeps[0] - self.station.settings["readout_LO"]
+    def get_program(self, element, Navg, sweeps, wait_after=10000):
+        sweep = sweeps[0] - self.station.full_config["PL"].LO_frequency
         sweep_state = [0, 1]
         with program() as resonator_spec:
             n = declare(int)  # QUA variable for the averaging loop
@@ -241,26 +232,15 @@ class DispersiveShift(QTLQMExperiment):
 
             with for_(n, 0, n < Navg, n + 1):  # QUA for_ loop for averaging
                 with for_(*from_array(f, sweep)):  # QUA for_ loop for sweeping the frequency
-                    update_frequency("resonator", f)
+                    update_frequency(f"resonator_{element}", f)
                     with for_(*from_array(op, sweep_state)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
                 # Measure the state of the resonator
                         with if_(op==1):
-                            play("x180", "qubit")
-                            wait(400 * u.ns, "qubit")
-                        align("qubit", "resonator")
+                            play("x180", element)
+                            wait(400 * u.ns, element)
+                        align(element, f"resonator_{element}")
                     # Measure the resonator (send a readout pulse and demodulate the signals to get the 'I' & 'Q' quadratures)
-                        measure(
-                            "readout",
-                            "resonator",
-                            None,
-                            dual_demod.full("cos", "sin", I),
-                            dual_demod.full("minus_sin", "cos", Q),
-                        )
-                    # Wait for the resonator to deplete
-                        wait(wait_after//4, "resonator")
-                        # Save the 'I' & 'Q' quadratures to their respective streams
-                        save(I, I_st)
-                        save(Q, Q_st)
+                        standard_readout(f"resonator_{element}", I, I_st, Q, Q_st, wait_after)
                 # Save the averaging iteration to get the progress bar
                 save(n, n_st)
 
@@ -273,7 +253,7 @@ class DispersiveShift(QTLQMExperiment):
     
     def analyze_data(self, result):
         fig, ax = plt.subplots(constrained_layout=True)
-        fig.suptitle(f"{result.id}_{self.experiment_name}")
+        fig.suptitle(result.get_title())
 
         res0, _ = opt.curve_fit(
             notch_res_abs,

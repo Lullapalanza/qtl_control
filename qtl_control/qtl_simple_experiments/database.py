@@ -4,16 +4,14 @@ import xarray as xr
 
 from datetime import datetime
 
-from qtl_control.qtl_simple_experiments.experiments import experiment_dict
-from qtl_control.qtl_simple_experiments.experiments.base import ExperimentResult
-
 class FileSystemDB:
     """
     Make a database as a filesystem to store measurement data in
     """
-    def __init__(self, db_name, path):
+    def __init__(self, db_name, path, experiment_dict=None):
         self.db_path = path + db_name
         self.current_id = -1
+        self.experiment_dict = experiment_dict
 
         if os.path.exists(self.db_path):
             with open(self.db_path + "/id.txt", "r") as f:
@@ -55,13 +53,12 @@ class FileSystemDB:
             print("No file found")
             return
         
-        experiment = experiment_dict.get(experiment_name)
+        experiment = self.experiment_dict.get(experiment_name)
         if experiment is None:
             print(f"{experiment_name} not registered")
             return
         
-        return ExperimentResult(
-            xr.open_dataset(f"{self.db_path}/{file}", auto_complex=True),
-            experiment(),
-            _id
+        return experiment().load(
+            id=_id,
+            data=xr.open_dataset(f"{self.db_path}/{file}", auto_complex=True),
         )

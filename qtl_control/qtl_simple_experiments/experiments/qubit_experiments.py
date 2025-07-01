@@ -1,12 +1,14 @@
 import numpy as np
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
+import xarray as xr
 from qm.qua import *
 from qualang_tools.loops import from_array
 
 from qualang_tools.units import unit
 u = unit(coerce_to_integer=True)
 from qtl_control.qtl_simple_experiments.experiments.base import QTLQMExperiment
+from qtl_control.qtl_simple_experiments.experiments.resonator_experiments import standard_readout
 
 def format_res(labels, values):
     return f"Fit:\n" + "\n".join([f"{label}: {float(v):.3e}" for label, v in zip(labels, values)])
@@ -18,9 +20,9 @@ class QubitSpectroscopy(QTLQMExperiment):
     def sweep_labels(self):
         return [("drive_frequency", "Hz"), ]
 
-    def get_program(self, Navg, sweeps, sat_amp=0.05, wait_after=10000):
+    def get_program(self, element, Navg, sweeps, sat_amp=0.05, wait_after=10000):
         saturation_len = 10 * u.us  # In ns
-        dfs = sweeps[0] - self.station.settings["qubit_LO"]
+        dfs = sweeps[0] - self.station.full_config[element].drive.LO_frequency
         # === START QM program ===
         with program() as spec_program:
             n = declare(int)
@@ -35,27 +37,16 @@ class QubitSpectroscopy(QTLQMExperiment):
             with for_(n, 0, n < Navg, n + 1):
                 with for_(*from_array(df, dfs)):
                     # Update the frequency of the digital oscillator linked to the qubit element
-                    update_frequency("qubit", df)
+                    update_frequency(element, df)
                     # Play the saturation pulse to put the qubit in a mixed state - Can adjust the amplitude on the fly [-2; 2)
-                    play("saturation" * amp(sat_amp), "qubit", duration=saturation_len * u.ns)
+                    play("saturation" * amp(sat_amp), element, duration=saturation_len * u.ns)
                     # Align the two elements to measure after playing the qubit pulse.
                     # One can also measure the resonator while driving the qubit by commenting the 'align'
-                    wait(400 * u.ns, "qubit")
-                    align("qubit", "resonator")
+                    wait(400 * u.ns, element)
+                    align(element, f"resonator_{element}")
 
                     # Measure the state of the resonator
-                    measure(
-                        "readout",
-                        "resonator",
-                        None,
-                        dual_demod.full("cos", "sin", I),
-                        dual_demod.full("minus_sin", "cos", Q),
-                    )
-                    # Wait for the qubit to decay to the ground state
-                    wait(wait_after//4, "resonator")
-                    # Save the 'I' & 'Q' quadratures to their respective streams
-                    save(I, I_stream)
-                    save(Q, Q_stream)
+                    standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
                 # Save the averaging iteration to get the progress bar
                 save(n, n_stream)
 
@@ -74,10 +65,10 @@ class FluxQubitSpectrsocopy(QTLQMExperiment):
     def sweep_labels(self):
         return [("amplitude", "arb"), ("drive_frequency", "Hz"), ]
 
-    def get_program(self, Navg, sweeps, sat_amp=0.05, wait_after=10000):
+    def get_program(self, element, Navg, sweeps, sat_amp=0.05, wait_after=10000):
         saturation_len = 10 * u.us  # In ns
         amp_sweep = sweeps[0]
-        dfs = sweeps[1] - self.station.settings["qubit_LO"]
+        dfs = sweeps[1] - self.station.full_config[element].drive.LO_frequency
         # === START QM program ===
         with program() as spec_program:
             n = declare(int)
@@ -92,30 +83,20 @@ class FluxQubitSpectrsocopy(QTLQMExperiment):
 
             with for_(n, 0, n < Navg, n + 1):
                 with for_(*from_array(a, amp_sweep)):  # QUA for_ loop for sweeping the frequency
-                    set_dc_offset("flux_line", "single", a)
+                    set_dc_offset(f"flux_line_{element}", "single", a)
                     with for_(*from_array(df, dfs)):
                         # Update the frequency of the digital oscillator linked to the qubit element
-                        update_frequency("qubit", df)
+                        update_frequency(element, df)
                         # Play the saturation pulse to put the qubit in a mixed state - Can adjust the amplitude on the fly [-2; 2)
-                        play("saturation" * amp(sat_amp), "qubit", duration=saturation_len * u.ns)
+                        play("saturation" * amp(sat_amp), element, duration=saturation_len * u.ns)
                         # Align the two elements to measure after playing the qubit pulse.
                         # One can also measure the resonator while driving the qubit by commenting the 'align'
-                        wait(400 * u.ns, "qubit")
-                        align("qubit", "resonator")
+                        wait(400 * u.ns, element)
+                        align(element, f"resonator_{element}")
 
                         # Measure the state of the resonator
-                        measure(
-                            "readout",
-                            "resonator",
-                            None,
-                            dual_demod.full("cos", "sin", I),
-                            dual_demod.full("minus_sin", "cos", Q),
-                        )
-                        # Wait for the qubit to decay to the ground state
-                        wait(wait_after//4, "resonator")
-                        # Save the 'I' & 'Q' quadratures to their respective streams
-                        save(I, I_stream)
-                        save(Q, Q_stream)
+                        standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
+
                     # Save the averaging iteration to get the progress bar
                 save(n, n_stream)
 
@@ -134,7 +115,7 @@ class Rabi(QTLQMExperiment):
     def sweep_labels(self):
         return [("amplitude", "arb"), ]
 
-    def get_program(self, Navg, sweeps, pulse_duration=100, wait_after=50000):
+    def get_program(self, element, Navg, sweeps, pulse_duration=100, wait_after=50000):
         amp_range = sweeps[0]
         # === START QM program ===
         with program() as rabi:
@@ -151,27 +132,16 @@ class Rabi(QTLQMExperiment):
                 with for_(*from_array(a, amp_range)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
                     # Play the qubit pulse with a variable amplitude (pre-factor to the pulse amplitude defined in the config)
                     
-                    
-                    # play("x180" * amp(a), "qubit")
-                    play("gauss" * amp(a), "qubit", duration=pulse_duration * u.ns)
+                    play("gauss" * amp(a), element, duration=pulse_duration * u.ns)
+                    # play("gauss" * amp(a), element)
                     
                     # Align the two elements to measure after playing the qubit pulse.
-                    wait(400 * u.ns, "qubit")
-                    align("qubit", "resonator")
+                    wait(400 * u.ns, element)
+                    align(element, f"resonator_{element}")
                     # Measure the state of the resonator
                     # The integration weights have changed to maximize the SNR after having calibrated the IQ blobs.
-                    measure(
-                        "readout",
-                        "resonator",
-                        None,
-                        dual_demod.full("cos", "sin", I),
-                        dual_demod.full("minus_sin", "cos", Q),
-                    )
-                    # Wait for the qubit to decay to the ground state
-                    wait(wait_after//4, "resonator")
-                    # Save the 'I' & 'Q' quadratures to their respective streams
-                    save(I, I_stream)
-                    save(Q, Q_stream)
+                    standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
+
                 # Save the averaging iteration to get the progress bar
                 save(n, n_stream)
 
@@ -218,7 +188,7 @@ class Rabi(QTLQMExperiment):
         ).real
 
         fig, ax = plt.subplots(constrained_layout=True)
-        fig.suptitle(f"{result.id}_{self.experiment_name}")
+        fig.suptitle(result.get_title())
         data["e_state"].plot.scatter(ax=ax, label="data")
         ax.plot(
             data.coords["amplitude"],
@@ -227,7 +197,14 @@ class Rabi(QTLQMExperiment):
         )
         ax.legend()
 
-        return rabi_f, g_state_readout, np.conjugate(e_state_readout)/np.abs(e_state_readout)**2
+        from qtl_control.qtl_simple_experiments.experiments.base import ReadoutDisc
+        return {
+            data.attrs["element"]: {
+                "X180_amplitude": rabi_f,
+                "readout_discriminator": ReadoutDisc(g_state_readout, np.conjugate(e_state_readout)/np.abs(e_state_readout)**2)
+            }
+        }
+    #rabi_f, g_state_readout, np.conjugate(e_state_readout)/np.abs(e_state_readout)**2
 
 
 
@@ -238,7 +215,7 @@ class TimeRabi(QTLQMExperiment):
     def sweep_labels(self):
         return ["duration", ]
 
-    def get_program(self, Navg, sweeps, pulse_amplitude=0.1, wait_after=50000):
+    def get_program(self, element, Navg, sweeps, pulse_amplitude=0.1, wait_after=50000):
         duration_sweep = sweeps[0]
         # === START QM program ===
         with program() as rabi_time:
@@ -259,25 +236,15 @@ class TimeRabi(QTLQMExperiment):
                     
                     
                     # play("x180" * amp(a), "qubit")
-                    play("gauss" * amp(pulse_amplitude), "qubit", duration=t)
+                    play("gauss" * amp(pulse_amplitude), element, duration=t)
                     # wait(t, "qubit")
                     
                     # Align the two elements to measure after playing the qubit pulse.
-                    align("qubit", "resonator")
+                    align(element, f"resonator_{element}")
                     # Measure the state of the resonator
                     # The integration weights have changed to maximize the SNR after having calibrated the IQ blobs.
-                    measure(
-                        "readout",
-                        "resonator",
-                        None,
-                        dual_demod.full("cos", "sin", I),
-                        dual_demod.full("minus_sin", "cos", Q),
-                    )
-                    # Wait for the qubit to decay to the ground state
-                    wait(wait_after//4, "resonator")
-                    # Save the 'I' & 'Q' quadratures to their respective streams
-                    save(I, I_stream)
-                    save(Q, Q_stream)
+                    standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
+
                 # Save the averaging iteration to get the progress bar
                 save(n, n_stream)
 
@@ -297,10 +264,11 @@ class Ramsey2F(QTLQMExperiment):
     def sweep_labels(self):
         return [("detuning", "Hz"), ("time", "ns")]
 
-    def get_program(self, Navg, sweeps, wait_after=50000):
+    def get_program(self, element, Navg, sweeps, wait_after=50000):
         delay_sweep = sweeps[1]//4
-        qubit_IF = self.station.settings["qubit_frequency"] - self.station.settings["qubit_LO"]
+        qubit_IF = self.station.element_conn[element].frequency - self.station.rf_output_channels[self.station.element_conn[element].drive]["LO_frequency"]
         detuning_sweep = qubit_IF + sweeps[0]
+        wait_after = wait_after//4
         # === START QM program ===
         with program() as ramsey_prog:
             n = declare(int)  # QUA variable for the averaging loop
@@ -317,30 +285,20 @@ class Ramsey2F(QTLQMExperiment):
 
             with for_(n, 0, n < Navg, n + 1):
                 with for_(*from_array(f, detuning_sweep)):
-                    update_frequency("qubit", f) 
+                    update_frequency(element, f) 
                     with for_(*from_array(tau, delay_sweep)):
                         # 1st x90 gate
-                        play("x90", "qubit")
+                        play("x90" * amp(self.station.element_conn[element].X180_amplitude), element)
                         # Wait a varying idle time
-                        wait(tau, "qubit")
+                        wait(tau, element)
                         # 2nd x90 gate
-                        play("x90", "qubit")
+                        play("x90" * amp(self.station.element_conn[element].X180_amplitude), element)
                         # Align the two elements to measure after playing the qubit pulse.
-                        wait(400 * u.ns, "qubit")
-                        align("qubit", "resonator")
+                        wait(100, element)
+                        align(element, f"resonator_{element}")
                         # Measure the state of the resonator
-                        measure(
-                            "readout",
-                            "resonator",
-                            None,
-                            dual_demod.full("cos", "sin", I),
-                            dual_demod.full("minus_sin", "cos", Q),
-                        )
-                        # Wait for the qubit to decay to the ground state
-                        wait(wait_after * u.ns, "resonator")
-                        # Save the 'I' & 'Q' quadratures to their respective streams
-                        save(I, I_st)
-                        save(Q, Q_st)
+                        standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
+
                     # Save the averaging iteration to get the progress bar
                 save(n, n_st)
 
@@ -352,15 +310,15 @@ class Ramsey2F(QTLQMExperiment):
             
         return ramsey_prog
     
-    def analyze_data(self, result):
-        result.add_e_state()
+    def analyze_data(self, result, element):
+        self.station.full_config[element].readout_discriminator.discriminate_data(result.data)
         data = result.data
 
         def exp_sine(time, detune, p0, tau, e0, e1):
             return e0 + e1 * np.sin(2 * np.pi * detune * time/1e9 + p0) * np.exp(-(time/1e9)/tau)
 
         fig, ax = plt.subplots(constrained_layout=True)
-        fig.suptitle(f"{result.id}_{self.experiment_name}")
+        fig.suptitle(result.get_title())
 
         detunes = []
         for detun in data.coords["detuning"]:
@@ -383,9 +341,9 @@ class Ramsey2F(QTLQMExperiment):
         ax.legend()
 
         if any([_det > sum(np.abs(data.coords["detuning"])) for _det in detunes]):
-            return self.station.settings["qubit_frequency"] + np.sign(data.coords["detuning"][0] - data.coords["detuning"][1]) * sum([np.abs(_det) for _det in detunes]) / 2
+            return self.station.element_conn[element].frequency + np.sign(data.coords["detuning"][0] - data.coords["detuning"][1]) * sum([np.abs(_det) for _det in detunes]) / 2
         else:
-            return self.station.settings["qubit_frequency"] + sum([-np.abs(_det) * np.sign(data_detung) for _det, data_detung in zip(detunes, data.coords["detuning"])]) * 0.5
+            return self.station.element_conn[element].frequency + sum([-np.abs(_det) * np.sign(data_detung) for _det, data_detung in zip(detunes, data.coords["detuning"])]) * 0.5
     
             
 
@@ -395,7 +353,7 @@ class T1(QTLQMExperiment):
     def sweep_labels(self):
         return [("time", "ns"), ]
 
-    def get_program(self, Navg, sweeps, wait_after=50000):
+    def get_program(self, element, Navg, sweeps, wait_after=50000):
         delay_sweep = sweeps[0]//4
         # === START QM program ===
         with program() as t1_program:
@@ -414,26 +372,15 @@ class T1(QTLQMExperiment):
                     # Play the qubit pulse with a variable amplitude (pre-factor to the pulse amplitude defined in the config)
                     
                     # play("x180" * amp(a), "qubit")
-                    play("x180", "qubit")
+                    play("x180" * amp(self.station.full_config[element].X180_amplitude), element)
                     # wait(t, "qubit")
-                    wait(t, "qubit") # in units of 4 ns
+                    wait(t, element) # in units of 4 ns
                     # Align the two elements to measure after playing the qubit pulse.
-                    wait(400 * u.ns, "qubit")
-                    align("qubit", "resonator")
+                    wait(400 * u.ns, element)
+                    align(element, f"resonator_{element}")
                     # Measure the state of the resonator
                     # The integration weights have changed to maximize the SNR after having calibrated the IQ blobs.
-                    measure(
-                        "readout",
-                        "resonator",
-                        None,
-                        dual_demod.full("cos", "sin", I),
-                        dual_demod.full("minus_sin", "cos", Q),
-                    )
-                    # Wait for the qubit to decay to the ground state
-                    wait(wait_after//4, "resonator")
-                    # Save the 'I' & 'Q' quadratures to their respective streams
-                    save(I, I_stream)
-                    save(Q, Q_stream)
+                    standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
                 # Save the averaging iteration to get the progress bar
                 save(n, n_stream)
 
@@ -446,11 +393,11 @@ class T1(QTLQMExperiment):
         return t1_program
     
     def analyze_data(self, result):
-        result.add_e_state()
         data = result.data
+        self.station.full_config[data.attrs["element"]].readout_discriminator.discriminate_data(data)
 
         fig, ax = plt.subplots(constrained_layout=True)
-        fig.suptitle(f"{result.id}_{self.experiment_name}")
+        fig.suptitle(result.get_title())
 
         def t1(wait, tau, e0, e1):
             return np.exp(-(wait/1e9)/tau) * e1 + e0
@@ -477,7 +424,7 @@ class SingleShotReadout(QTLQMExperiment):
     def sweep_labels(self):
         return [("iteration", ""), ("state", "")]
         
-    def get_program(self, Navg, sweeps, wait_after=100000):
+    def get_program(self, element, Navg, sweeps, wait_after=100000):
         self.station.single_shot = True
         sweep = [0, 1]
         with program() as IQ_blobs:
@@ -485,40 +432,28 @@ class SingleShotReadout(QTLQMExperiment):
             op = declare(int)
             I = declare(fixed)
             Q = declare(fixed)
-            I_st = declare_stream()
-            Q_st = declare_stream()
+            I_stream = declare_stream()
+            Q_stream = declare_stream()
 
             with for_(n, 0, n < Navg, n + 1):
                 with for_(*from_array(op, sweep)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
                 # Measure the state of the resonator
                     with if_(op==1):
-                        play("x180", "qubit")
-                        wait(400 * u.ns, "qubit")
-                    align("qubit", "resonator")
-                    measure(
-                        "readout",
-                        "resonator",
-                        None,
-                        dual_demod.full("cos", "sin", I),
-                        dual_demod.full("minus_sin", "cos", Q),
-                    )
-                # Wait for the qubit to decay to the ground state in the case of measurement induced transitions
-                    wait(wait_after//4, "resonator")
-                    align("resonator", "qubit")
-                # Save the 'I' & 'Q' quadratures to their respective streams for the ground state
-                    save(I, I_st)
-                    save(Q, Q_st)
+                        play("x180" * amp(self.station.full_config[element].X180_amplitude), element)
+                        wait(400 * u.ns, element)
+                    align(element, f"resonator_{element}")
+                    standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
 
             with stream_processing():
                 # Save all streamed points for plotting the IQ blobs
-                I_st.buffer(len(sweep)).save_all("I")
-                Q_st.buffer(len(sweep)).save_all("Q")
+                I_stream.buffer(len(sweep)).save_all("I")
+                Q_stream.buffer(len(sweep)).save_all("Q")
         
         return IQ_blobs
     
     def analyze_data(self, result):
         fig, ax = plt.subplots(constrained_layout=True)
-        fig.suptitle(f"{result.id}_{self.experiment_name}")
+        fig.suptitle(result.get_title())
 
         ax.scatter(
             result.data["iq"].sel(state="ground").real,
@@ -543,3 +478,93 @@ class SingleShotReadout(QTLQMExperiment):
         ax.legend()
         ax.set_xlabel("I")
         ax.set_ylabel("Q")
+
+
+
+class ReadoutOptimization(QTLQMExperiment):
+    experiment_name = "QM-ReadoutOptimization"
+
+    def sweep_labels(self):
+        return [("iteration", ""), ("frequency", "Hz"), ("amplitude", ""), ("state", "")]
+        
+    def get_program(self, element, Navg, sweeps, wait_after=100000):
+        self.station.single_shot = True
+        sweep_ro_frequency = sweeps[1] - self.station.pl_config["PL"].LO_frequency
+        sweep_amplitude = sweeps[2]
+        sweep_state = [0, 1]
+        with program() as IQ_blobs:
+            n = declare(int)
+            ro_f = declare(int)
+            ro_ampl = declare(fixed)
+            op = declare(int)
+            I = declare(fixed)
+            Q = declare(fixed)
+            I_st = declare_stream()
+            Q_st = declare_stream()
+
+            with for_(n, 0, n < Navg, n + 1):
+                with for_(*from_array(ro_f, sweep_ro_frequency)):
+                    update_frequency(f"resonator_{element}", ro_f)
+                    with for_(*from_array(ro_ampl, sweep_amplitude)):
+                        with for_(*from_array(op, sweep_state)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
+                        # Measure the state of the resonator
+                            with if_(op==1):
+                                play("x180" * amp(self.station.full_config[element].X180_amplitude), f"{element}")
+                                wait(100, f"{element}")
+                            align(f"{element}", f"resonator_{element}")
+                            measure(
+                                "readout" * amp(ro_ampl/self.station.full_config[element].readout_amplitude),
+                                f"resonator_{element}",
+                                None,
+                                dual_demod.full("cos", "sin", I),
+                                dual_demod.full("minus_sin", "cos", Q),
+                            )
+                        # Wait for the qubit to decay to the ground state in the case of measurement induced transitions
+                            wait(wait_after//4, f"resonator_{element}")
+                        # Save the 'I' & 'Q' quadratures to their respective streams for the ground state
+                            save(I, I_st)
+                            save(Q, Q_st)
+
+            with stream_processing():
+                # Save all streamed points for plotting the IQ blobs
+                I_st.buffer(len(sweep_state)).buffer(len(sweep_amplitude)).buffer(len(sweep_ro_frequency)).save_all("I")
+                Q_st.buffer(len(sweep_state)).buffer(len(sweep_amplitude)).buffer(len(sweep_ro_frequency)).save_all("Q")
+    
+        return IQ_blobs
+
+
+    def analyze_data(self, result):
+        res_data = result.data
+        fig, ax = plt.subplots(constrained_layout=True)
+        fig.suptitle(result.get_title())
+
+        fids = np.empty((len(res_data["frequency"].values), len(res_data["amplitude"].values)))
+
+        for i, ro_f in enumerate(res_data["frequency"]):
+            for j, ro_a in enumerate(res_data["amplitude"]):
+                dataslice = res_data.sel(amplitude=ro_a, frequency=ro_f)
+                g_mean = dataslice.sel(state="ground")["iq"].mean()
+                e_mean = dataslice.sel(state="excited")["iq"].mean()
+
+                dist_to_g = np.abs(dataslice["iq"] - g_mean)
+                dist_to_e = np.abs(dataslice["iq"] - e_mean)
+
+                disc_data = np.where(dist_to_e < dist_to_g, 1, 0)
+                dataslice["discriminated"] = xr.DataArray(disc_data, coords={
+                    "iteration": dataslice["iteration"].values,
+                    "state": dataslice["state"].values
+                }, dims=["iteration", "state"])
+                N = len(dataslice["iteration"].values)
+                
+                fid = 0.5 * (
+                    int(dataslice["discriminated"].sel(state="excited").sum())/N +
+                    (N - int(dataslice["discriminated"].sel(state="ground").sum()))/N
+                )
+
+                fids[i][j] = fid
+
+        fid_ds = xr.DataArray(
+            fids, coords={"frequency": res_data["frequency"].values, "amplitude": res_data["amplitude"].values},
+            dims=["frequency", "amplitude"]
+        )
+        fid_ds.plot(ax=ax, x="frequency")
