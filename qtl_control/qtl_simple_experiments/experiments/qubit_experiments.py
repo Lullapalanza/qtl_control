@@ -20,8 +20,8 @@ class QubitSpectroscopy(QTLQMExperiment):
     def sweep_labels(self):
         return [("drive_frequency", "Hz"), ]
 
-    def get_program(self, element, Navg, sweeps, sat_amp=0.05, wait_after=10000):
-        saturation_len = 10 * u.us  # In ns
+    def get_program(self, element, Navg, sweeps, sat_amp=0.05, sat_len=10000, wait_after=10000):
+        saturation_len = sat_len * u.ns  # In ns
         dfs = sweeps[0] - self.station.full_config[element].drive.LO_frequency
         # === START QM program ===
         with program() as spec_program:
@@ -266,7 +266,7 @@ class Ramsey2F(QTLQMExperiment):
 
     def get_program(self, element, Navg, sweeps, wait_after=50000):
         delay_sweep = sweeps[1]//4
-        qubit_IF = self.station.element_conn[element].frequency - self.station.rf_output_channels[self.station.element_conn[element].drive]["LO_frequency"]
+        qubit_IF = self.station.full_config[element].frequency - self.station.full_config[element].drive.LO_frequency
         detuning_sweep = qubit_IF + sweeps[0]
         wait_after = wait_after//4
         # === START QM program ===
@@ -277,8 +277,8 @@ class Ramsey2F(QTLQMExperiment):
 
             I = declare(fixed)  # QUA variable for the measured 'I' quadrature
             Q = declare(fixed)  # QUA variable for the measured 'Q' quadrature
-            I_st = declare_stream()  # Stream for the 'I' quadrature
-            Q_st = declare_stream()  # Stream for the 'Q' quadrature
+            I_stream = declare_stream()  # Stream for the 'I' quadrature
+            Q_stream = declare_stream()  # Stream for the 'Q' quadrature
             n_st = declare_stream()  # Stream for the averaging iteration 'n'
 
             # Shift the qubit drive frequency to observe Ramsey oscillations
@@ -288,11 +288,11 @@ class Ramsey2F(QTLQMExperiment):
                     update_frequency(element, f) 
                     with for_(*from_array(tau, delay_sweep)):
                         # 1st x90 gate
-                        play("x90" * amp(self.station.element_conn[element].X180_amplitude), element)
+                        play("x90" * amp(self.station.full_config[element].X180_amplitude), element)
                         # Wait a varying idle time
                         wait(tau, element)
                         # 2nd x90 gate
-                        play("x90" * amp(self.station.element_conn[element].X180_amplitude), element)
+                        play("x90" * amp(self.station.full_config[element].X180_amplitude), element)
                         # Align the two elements to measure after playing the qubit pulse.
                         wait(100, element)
                         align(element, f"resonator_{element}")
@@ -304,8 +304,8 @@ class Ramsey2F(QTLQMExperiment):
 
             with stream_processing():
                 # Cast the data into a 1D vector, average the 1D vectors together and store the results on the OPX processor
-                I_st.buffer(len(delay_sweep)).buffer(len(detuning_sweep)).average().save("I")
-                Q_st.buffer(len(delay_sweep)).buffer(len(detuning_sweep)).average().save("Q")
+                I_stream.buffer(len(delay_sweep)).buffer(len(detuning_sweep)).average().save("I")
+                Q_stream.buffer(len(delay_sweep)).buffer(len(detuning_sweep)).average().save("Q")
                 n_st.save("iteration")
             
         return ramsey_prog
@@ -341,9 +341,9 @@ class Ramsey2F(QTLQMExperiment):
         ax.legend()
 
         if any([_det > sum(np.abs(data.coords["detuning"])) for _det in detunes]):
-            return self.station.element_conn[element].frequency + np.sign(data.coords["detuning"][0] - data.coords["detuning"][1]) * sum([np.abs(_det) for _det in detunes]) / 2
+            return self.station.full_config[element].frequency + np.sign(data.coords["detuning"][0] - data.coords["detuning"][1]) * sum([np.abs(_det) for _det in detunes]) / 2
         else:
-            return self.station.element_conn[element].frequency + sum([-np.abs(_det) * np.sign(data_detung) for _det, data_detung in zip(detunes, data.coords["detuning"])]) * 0.5
+            return self.station.full_config[element].frequency + sum([-np.abs(_det) * np.sign(data_detung) for _det, data_detung in zip(detunes, data.coords["detuning"])]) * 0.5
     
             
 

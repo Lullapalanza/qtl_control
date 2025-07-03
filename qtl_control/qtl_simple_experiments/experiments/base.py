@@ -196,7 +196,7 @@ class QTLQMSimpleStation:
         self.qm = self.qm_manager.open_qm(qm_config)
 
 
-    def execute(self, element, program, Navg):
+    def execute(self, element, program, Navg, live_plot=False):
         if self.single_shot:
             job = self.qm.execute(program)
             res_handles = job.result_handles
