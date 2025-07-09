@@ -1,8 +1,8 @@
 import numpy as np
-from qualang_tools.config.waveform_tools import drag_gaussian_pulse_waveforms
-from qualang_tools.units import unit
 
-u = unit(coerce_to_integer=True)
+from qualang_tools.config.waveform_tools import drag_gaussian_pulse_waveforms
+
+from qtl_control.qtl_station.station import u
 
 
 def generate_config(
@@ -68,7 +68,7 @@ def generate_config(
 
     # ADD DRIVES
     ELEMENTS_CONFIG = {
-        qb_id: {
+        f"drive_{qb_id}": {
             "RF_inputs": {"port": ("oct1", int(transmon.drive.channel_id.strip("RF")))},
             "intermediate_frequency": transmon.frequency - transmon.drive.LO_frequency,
             "operations": OPERATIONS
@@ -93,46 +93,6 @@ def generate_config(
             "singleInput": {"port": ("con1", int(element_conn[element].flux.channel_id.strip("AO")))}
         } for element in elements_to_run if element_conn[element].flux is not None
     })
-
-
-    # ELEMENTS_CONFIG = {
-    #     "qubit": {
-    #         "RF_inputs": {"port": ("oct1", 4)},
-    #         "intermediate_frequency": qubit_IF,
-    #         "operations": {
-    #             "cw": "const_pulse",
-    #             "saturation": "saturation_pulse",
-    #             "pi": "pi_pulse",
-    #             "pi_half": "pi_half_pulse",
-    #             "x90": "x90_pulse",
-    #             "x180": "x180_pulse",
-    #             "-x90": "-x90_pulse",
-    #             "y90": "y90_pulse",
-    #             "y180": "y180_pulse",
-    #             "-y90": "-y90_pulse",
-    #             "gauss": "gauss_pulse"
-    #         },
-    #     },
-    #     "resonator": {
-    #         "RF_inputs": {"port": ("oct1", 1)},
-    #         "RF_outputs": {"port": ("oct1", 1)},
-    #         "intermediate_frequency": readout_IF,
-    #         "operations": {
-    #             "cw": "const_pulse",
-    #             "readout": "readout_pulse",
-    #         },
-    #         "time_of_flight": time_of_flight,
-    #         "smearing": 0,
-    #     },
-    #     # "flux_line": {
-    #     #     "singleInput": {
-    #     #         "port": ("con1", 3),
-    #     #     },
-    #     #     "operations": {
-    #     #         "const": "const_flux_pulse",
-    #     #     },
-    #     # },
-    # }
 
     CONST_LEN = 100 # X180_duration
     CONST_FLUX_LEN = 100 # X180_duration
@@ -293,41 +253,8 @@ def generate_config(
                     "Q": "minus_y90_Q_wf",
                 },
             },
-            # "readout_pulse": {
-            #     "operation": "measurement",
-            #     "length": readout_len,
-            #     "waveforms": {
-            #         "I": "readout_wf",
-            #         "Q": "zero_wf",
-            #     },
-            #     "integration_weights": {
-            #         "cos": "cosine_weights",
-            #         "sin": "sine_weights",
-            #         "minus_sin": "minus_sine_weights",
-            #         "rotated_cos": "rotated_cosine_weights",
-            #         "rotated_sin": "rotated_sine_weights",
-            #         "rotated_minus_sin": "rotated_minus_sine_weights",
-            #         "opt_cos": "opt_cosine_weights",
-            #         "opt_sin": "opt_sine_weights",
-            #         "opt_minus_sin": "opt_minus_sine_weights",
-            #     },
-            #     "digital_marker": "ON",
-            # },
         },
         "integration_weights": {},
-        #     "cosine_weights": {
-        #         "cosine": [(1.0, readout_len)],
-        #         "sine": [(0.0, readout_len)],
-        #     },
-        #     "sine_weights": {
-        #         "cosine": [(0.0, readout_len)],
-        #         "sine": [(1.0, readout_len)],
-        #     },
-        #     "minus_sine_weights": {
-        #         "cosine": [(0.0, readout_len)],
-        #         "sine": [(-1.0, readout_len)],
-        #     }
-        # },
         "waveforms": WAVEFORMS_CONFIG,
         "digital_waveforms": {
             "ON": {"samples": [(1, 0)]},

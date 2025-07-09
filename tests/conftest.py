@@ -1,11 +1,15 @@
 import pytest
 
 from pathlib import Path
-from qtl_control.station import parse_config_to_station
+from qtl_control.start import start_station
 
 
 @pytest.fixture
 def station():
-    return parse_config_to_station(
-        str(Path(__file__).parent / "test_station.yaml")
+    station = start_station(
+        config=str(Path(__file__).parent / "test_station.yaml"),
+        db_path="tests/",
+        db_name="test_db"
     )
+    station.reload_config(["Q7"])
+    return station

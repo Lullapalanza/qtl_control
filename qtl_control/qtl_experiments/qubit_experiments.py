@@ -1,17 +1,15 @@
 import numpy as np
+import xarray as xr
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
-import xarray as xr
+
 from qm.qua import *
 from qualang_tools.loops import from_array
 
-from qualang_tools.units import unit
-u = unit(coerce_to_integer=True)
-from qtl_control.qtl_simple_experiments.experiments.base import QTLQMExperiment
-from qtl_control.qtl_simple_experiments.experiments.resonator_experiments import standard_readout
-
-def format_res(labels, values):
-    return f"Fit:\n" + "\n".join([f"{label}: {float(v):.3e}" for label, v in zip(labels, values)])
+from qtl_control.qtl_station.station import u
+from qtl_control.qtl_experiments import QTLQMExperiment
+from qtl_control.qtl_station import ReadoutDisc
+from qtl_control.qtl_experiments.utils import standard_readout, format_res
 
 
 class QubitSpectroscopy(QTLQMExperiment):
@@ -22,7 +20,7 @@ class QubitSpectroscopy(QTLQMExperiment):
 
     def get_program(self, element, Navg, sweeps, sat_amp=0.05, sat_len=10000, wait_after=10000):
         saturation_len = sat_len * u.ns  # In ns
-        dfs = sweeps[0] - self.station.full_config[element].drive.LO_frequency
+        dfs = sweeps[0] - self.station.config[element].drive.LO_frequency
         # === START QM program ===
         with program() as spec_program:
             n = declare(int)
@@ -68,7 +66,7 @@ class FluxQubitSpectrsocopy(QTLQMExperiment):
     def get_program(self, element, Navg, sweeps, sat_amp=0.05, wait_after=10000):
         saturation_len = 10 * u.us  # In ns
         amp_sweep = sweeps[0]
-        dfs = sweeps[1] - self.station.full_config[element].drive.LO_frequency
+        dfs = sweeps[1] - self.station.config[element].drive.LO_frequency
         # === START QM program ===
         with program() as spec_program:
             n = declare(int)
@@ -197,7 +195,6 @@ class Rabi(QTLQMExperiment):
         )
         ax.legend()
 
-        from qtl_control.qtl_simple_experiments.experiments.base import ReadoutDisc
         return {
             data.attrs["element"]: {
                 "X180_amplitude": rabi_f,
@@ -266,7 +263,7 @@ class Ramsey2F(QTLQMExperiment):
 
     def get_program(self, element, Navg, sweeps, wait_after=50000):
         delay_sweep = sweeps[1]//4
-        qubit_IF = self.station.full_config[element].frequency - self.station.full_config[element].drive.LO_frequency
+        qubit_IF = self.station.config[element].frequency - self.station.config[element].drive.LO_frequency
         detuning_sweep = qubit_IF + sweeps[0]
         wait_after = wait_after//4
         # === START QM program ===
@@ -288,11 +285,11 @@ class Ramsey2F(QTLQMExperiment):
                     update_frequency(element, f) 
                     with for_(*from_array(tau, delay_sweep)):
                         # 1st x90 gate
-                        play("x90" * amp(self.station.full_config[element].X180_amplitude), element)
+                        play("x90" * amp(self.station.config[element].X180_amplitude), element)
                         # Wait a varying idle time
                         wait(tau, element)
                         # 2nd x90 gate
-                        play("x90" * amp(self.station.full_config[element].X180_amplitude), element)
+                        play("x90" * amp(self.station.config[element].X180_amplitude), element)
                         # Align the two elements to measure after playing the qubit pulse.
                         wait(100, element)
                         align(element, f"resonator_{element}")
@@ -310,9 +307,10 @@ class Ramsey2F(QTLQMExperiment):
             
         return ramsey_prog
     
-    def analyze_data(self, result, element):
-        self.station.full_config[element].readout_discriminator.discriminate_data(result.data)
+    def analyze_data(self, result):
         data = result.data
+        element = data.attrs["element"]
+        self.station.config[element].readout_discriminator.discriminate_data(result.data)
 
         def exp_sine(time, detune, p0, tau, e0, e1):
             return e0 + e1 * np.sin(2 * np.pi * detune * time/1e9 + p0) * np.exp(-(time/1e9)/tau)
@@ -341,9 +339,9 @@ class Ramsey2F(QTLQMExperiment):
         ax.legend()
 
         if any([_det > sum(np.abs(data.coords["detuning"])) for _det in detunes]):
-            return self.station.full_config[element].frequency + np.sign(data.coords["detuning"][0] - data.coords["detuning"][1]) * sum([np.abs(_det) for _det in detunes]) / 2
+            return self.station.config[element].frequency + np.sign(data.coords["detuning"][0] - data.coords["detuning"][1]) * sum([np.abs(_det) for _det in detunes]) / 2
         else:
-            return self.station.full_config[element].frequency + sum([-np.abs(_det) * np.sign(data_detung) for _det, data_detung in zip(detunes, data.coords["detuning"])]) * 0.5
+            return self.station.config[element].frequency + sum([-np.abs(_det) * np.sign(data_detung) for _det, data_detung in zip(detunes, data.coords["detuning"])]) * 0.5
     
             
 
@@ -372,7 +370,7 @@ class T1(QTLQMExperiment):
                     # Play the qubit pulse with a variable amplitude (pre-factor to the pulse amplitude defined in the config)
                     
                     # play("x180" * amp(a), "qubit")
-                    play("x180" * amp(self.station.full_config[element].X180_amplitude), element)
+                    play("x180" * amp(self.station.config[element].X180_amplitude), element)
                     # wait(t, "qubit")
                     wait(t, element) # in units of 4 ns
                     # Align the two elements to measure after playing the qubit pulse.
@@ -394,7 +392,7 @@ class T1(QTLQMExperiment):
     
     def analyze_data(self, result):
         data = result.data
-        self.station.full_config[data.attrs["element"]].readout_discriminator.discriminate_data(data)
+        self.station.config[data.attrs["element"]].readout_discriminator.discriminate_data(data)
 
         fig, ax = plt.subplots(constrained_layout=True)
         fig.suptitle(result.get_title())
@@ -439,7 +437,7 @@ class SingleShotReadout(QTLQMExperiment):
                 with for_(*from_array(op, sweep)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
                 # Measure the state of the resonator
                     with if_(op==1):
-                        play("x180" * amp(self.station.full_config[element].X180_amplitude), element)
+                        play("x180" * amp(self.station.config[element].X180_amplitude), element)
                         wait(400 * u.ns, element)
                     align(element, f"resonator_{element}")
                     standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
@@ -509,11 +507,11 @@ class ReadoutOptimization(QTLQMExperiment):
                         with for_(*from_array(op, sweep_state)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
                         # Measure the state of the resonator
                             with if_(op==1):
-                                play("x180" * amp(self.station.full_config[element].X180_amplitude), f"{element}")
+                                play("x180" * amp(self.station.config[element].X180_amplitude), f"{element}")
                                 wait(100, f"{element}")
                             align(f"{element}", f"resonator_{element}")
                             measure(
-                                "readout" * amp(ro_ampl/self.station.full_config[element].readout_amplitude),
+                                "readout" * amp(ro_ampl/self.station.config[element].readout_amplitude),
                                 f"resonator_{element}",
                                 None,
                                 dual_demod.full("cos", "sin", I),

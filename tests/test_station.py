@@ -1,9 +1,8 @@
+def test_config_load(station):
+    station.reload_config(["Q7"])
+    assert station.config["Q7"].frequency == 5.8e9
+    assert station.config["Q7"].drive.LO_frequency == 6e9
 
-def test_station(station):
-    loaded_modules = station.get_module_names()
-    assert loaded_modules == ["MockModule", ]
-    
-    name, new_config = station.new_configuration("test_user")
-    
-    # assert name == "test_user"
-    # ct_tree = new_config.get_settings()
+    station.config["Q7"].frequency = 5.9e9
+    station.reload_config(["Q7"])
+    assert station.config["Q7"].frequency == 5.9e9

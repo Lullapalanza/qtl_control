@@ -1,37 +1,33 @@
-ControllerModules:
-  MockModule: qtl_control.controller_module
-  RandSModule: qtl_control.rands_vna
-  PulsedQubits: qtl_control.qubit_controllers
-  QuantumMachinesModule: qtl_control.qtl_qm.qm_controllers
-
-controllers:
-  hw_controller_0:
-    type: MockHWController
-    host: 10.59.100.100
-    port: 0000
-
-  abstract_controller_0:
-    type: MockController
-
-  combined_controller_0:
-    type: MockCombinedController
-    controller_0: hw_controller_0
-    controller_1: abstract_controller_0
-
-  vna_controller:
-    type: ZNBMock
-    host: 10.10
-    port: 0000
-
-  qm_manager:
-    type: QMManager
-    host:
-    port:
-    cluster_name:
-    octave_lable:
-    octave_ip:
-
-  qubit_0:
-    type: TransmonQubit
-    # drive_channel: null
-    # readout_channel: null
+QMManager:
+  host: 10.209.69.105
+  port: null
+  cluster_name: Cluster_2
+  mock: True
+ 
+  channels:
+    RF_in: [RF_1_in, ]
+    RF_out: [RF1, RF2, RF3, RF4]
+    analog_out: [AO9, AO10]
+ 
+cryostat:
+  A2: AO9
+  A3: AO10
+  C1_pl: RF1
+  C1_drive: RF4
+  B5: RF2
+  C4: RF3
+  LNF: RF_1_in
+ 
+chip:
+  Q3:
+    drive: C4
+    flux: A2
+  Q4:
+    drive: B5
+    flux: A3
+  Q7:
+    drive: C1_drive
+  PL:
+    input: C1_pl
+    output: LNF
+ 
