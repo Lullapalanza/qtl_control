@@ -1,4 +1,4 @@
-/pycache/*
+*pycache*
 */.ipynb_checkpoints/*
 .pytest_cache
 qtl_control.egg-info
