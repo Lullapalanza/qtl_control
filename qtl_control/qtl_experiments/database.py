@@ -4,6 +4,8 @@ import xarray as xr
 
 from datetime import datetime
 
+from qtl_control.qtl_experiments.experiment import ExperimentResult
+
 class FileSystemDB:
     """
     Make a database as a filesystem to store measurement data in
@@ -24,7 +26,7 @@ class FileSystemDB:
                 f.write(str(self.current_id))
             print(f"Created new DB")
 
-    def save_data(self, experiment_name, data, overwrite_id=None):
+    def save_data(self, experiment_name, data, overwrite_id=None) -> int:
         # Save xarray dataset as '.nc'
         if overwrite_id is None:
             self.current_id += 1
@@ -41,7 +43,7 @@ class FileSystemDB:
 
         return save_as_id
 
-    def load_result(self, id):
+    def load_result(self, id) -> ExperimentResult:
         _id = None
         for file in os.listdir(f"{self.db_path}/"):
             if fnmatch.fnmatch(file, f"{id}_*"):
