@@ -2,6 +2,7 @@ import numpy as np
 import xarray as xr
 import matplotlib.pyplot as plt
 
+from qtl_control.qtl_experiments.utils import ReadoutType
 
 class ExperimentResult:
     def __init__(self, data, experiment, existing_id=None):
@@ -56,10 +57,11 @@ class QTLQMExperiment:
     An experiment instance that allows to predefine some operations and experiments
     """
     station = None
+    readout_type = ReadoutType.average # default
 
     def run(self, element, sweeps=None, Navg=1024, autosave=True, **kwargs):
         program = self.get_program(element, Navg, sweeps, **kwargs)
-        results = self.station.execute(element, program, Navg)
+        results = self.station.execute(element, program, Navg, readout_type=self.readout_type)
 
         sweep_labels = [sl[0] for sl in self.sweep_labels()]
         ds = xr.Dataset(

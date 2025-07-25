@@ -6,10 +6,12 @@ import matplotlib.pyplot as plt
 from qm.qua import *
 from qualang_tools.loops import from_array
 
+from qtl_control.qtl_station.station import ReadoutType
 from qtl_control.qtl_station.station import u
 from qtl_control.qtl_experiments import QTLQMExperiment
 from qtl_control.qtl_station import ReadoutDisc
 from qtl_control.qtl_experiments.utils import standard_readout, format_res
+
 
 
 class QubitSpectroscopy(QTLQMExperiment):
@@ -35,13 +37,13 @@ class QubitSpectroscopy(QTLQMExperiment):
             with for_(n, 0, n < Navg, n + 1):
                 with for_(*from_array(df, dfs)):
                     # Update the frequency of the digital oscillator linked to the qubit element
-                    update_frequency(element, df)
+                    update_frequency(f"drive_{element}", df)
                     # Play the saturation pulse to put the qubit in a mixed state - Can adjust the amplitude on the fly [-2; 2)
-                    play("saturation" * amp(sat_amp), element, duration=saturation_len * u.ns)
+                    play("saturation" * amp(sat_amp), f"drive_{element}", duration=saturation_len * u.ns)
                     # Align the two elements to measure after playing the qubit pulse.
                     # One can also measure the resonator while driving the qubit by commenting the 'align'
-                    wait(400 * u.ns, element)
-                    align(element, f"resonator_{element}")
+                    wait(400 * u.ns, f"drive_{element}")
+                    align(f"drive_{element}", f"resonator_{element}")
 
                     # Measure the state of the resonator
                     standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
@@ -84,13 +86,13 @@ class FluxQubitSpectrsocopy(QTLQMExperiment):
                     set_dc_offset(f"flux_line_{element}", "single", a)
                     with for_(*from_array(df, dfs)):
                         # Update the frequency of the digital oscillator linked to the qubit element
-                        update_frequency(element, df)
+                        update_frequency(f"drive_{element}", df)
                         # Play the saturation pulse to put the qubit in a mixed state - Can adjust the amplitude on the fly [-2; 2)
-                        play("saturation" * amp(sat_amp), element, duration=saturation_len * u.ns)
+                        play("saturation" * amp(sat_amp), f"drive_{element}", duration=saturation_len * u.ns)
                         # Align the two elements to measure after playing the qubit pulse.
                         # One can also measure the resonator while driving the qubit by commenting the 'align'
-                        wait(400 * u.ns, element)
-                        align(element, f"resonator_{element}")
+                        wait(400 * u.ns, f"drive_{element}")
+                        align(f"drive_{element}", f"resonator_{element}")
 
                         # Measure the state of the resonator
                         standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
@@ -130,12 +132,12 @@ class Rabi(QTLQMExperiment):
                 with for_(*from_array(a, amp_range)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
                     # Play the qubit pulse with a variable amplitude (pre-factor to the pulse amplitude defined in the config)
                     
-                    play("gauss" * amp(a), element, duration=pulse_duration * u.ns)
+                    play("gauss" * amp(a), f"drive_{element}", duration=pulse_duration * u.ns)
                     # play("gauss" * amp(a), element)
                     
                     # Align the two elements to measure after playing the qubit pulse.
-                    wait(400 * u.ns, element)
-                    align(element, f"resonator_{element}")
+                    wait(400 * u.ns, f"drive_{element}")
+                    align(f"drive_{element}", f"resonator_{element}")
                     # Measure the state of the resonator
                     # The integration weights have changed to maximize the SNR after having calibrated the IQ blobs.
                     standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
@@ -233,11 +235,11 @@ class TimeRabi(QTLQMExperiment):
                     
                     
                     # play("x180" * amp(a), "qubit")
-                    play("gauss" * amp(pulse_amplitude), element, duration=t)
+                    play("gauss" * amp(pulse_amplitude), f"drive_{element}", duration=t)
                     # wait(t, "qubit")
                     
                     # Align the two elements to measure after playing the qubit pulse.
-                    align(element, f"resonator_{element}")
+                    align(f"drive_{element}", f"resonator_{element}")
                     # Measure the state of the resonator
                     # The integration weights have changed to maximize the SNR after having calibrated the IQ blobs.
                     standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
@@ -282,17 +284,17 @@ class Ramsey2F(QTLQMExperiment):
 
             with for_(n, 0, n < Navg, n + 1):
                 with for_(*from_array(f, detuning_sweep)):
-                    update_frequency(element, f) 
+                    update_frequency(f"drive_{element}", f) 
                     with for_(*from_array(tau, delay_sweep)):
                         # 1st x90 gate
-                        play("x90" * amp(self.station.config[element].X180_amplitude), element)
+                        play("x90" * amp(self.station.config[element].X180_amplitude), f"drive_{element}")
                         # Wait a varying idle time
-                        wait(tau, element)
+                        wait(tau, f"drive_{element}")
                         # 2nd x90 gate
-                        play("x90" * amp(self.station.config[element].X180_amplitude), element)
+                        play("x90" * amp(self.station.config[element].X180_amplitude), f"drive_{element}")
                         # Align the two elements to measure after playing the qubit pulse.
-                        wait(100, element)
-                        align(element, f"resonator_{element}")
+                        wait(100, f"drive_{element}")
+                        align(f"drive_{element}", f"resonator_{element}")
                         # Measure the state of the resonator
                         standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
 
@@ -370,12 +372,12 @@ class T1(QTLQMExperiment):
                     # Play the qubit pulse with a variable amplitude (pre-factor to the pulse amplitude defined in the config)
                     
                     # play("x180" * amp(a), "qubit")
-                    play("x180" * amp(self.station.config[element].X180_amplitude), element)
+                    play("x180" * amp(self.station.config[element].X180_amplitude), f"drive_{element}")
                     # wait(t, "qubit")
-                    wait(t, element) # in units of 4 ns
+                    wait(t, f"drive_{element}") # in units of 4 ns
                     # Align the two elements to measure after playing the qubit pulse.
-                    wait(400 * u.ns, element)
-                    align(element, f"resonator_{element}")
+                    wait(400 * u.ns, f"drive_{element}")
+                    align(f"drive_{element}", f"resonator_{element}")
                     # Measure the state of the resonator
                     # The integration weights have changed to maximize the SNR after having calibrated the IQ blobs.
                     standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
@@ -418,6 +420,7 @@ class T1(QTLQMExperiment):
     
 class SingleShotReadout(QTLQMExperiment):
     experiment_name = "QM-SingleShotReadout"
+    readout_type = ReadoutType.single_shot
 
     def sweep_labels(self):
         return [("iteration", ""), ("state", "")]
@@ -437,9 +440,9 @@ class SingleShotReadout(QTLQMExperiment):
                 with for_(*from_array(op, sweep)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
                 # Measure the state of the resonator
                     with if_(op==1):
-                        play("x180" * amp(self.station.config[element].X180_amplitude), element)
-                        wait(400 * u.ns, element)
-                    align(element, f"resonator_{element}")
+                        play("x180" * amp(self.station.config[element].X180_amplitude), f"drive_{element}")
+                        wait(400 * u.ns, f"drive_{element}")
+                    align(f"drive_{element}", f"resonator_{element}")
                     standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
 
             with stream_processing():
@@ -481,6 +484,7 @@ class SingleShotReadout(QTLQMExperiment):
 
 class ReadoutOptimization(QTLQMExperiment):
     experiment_name = "QM-ReadoutOptimization"
+    readout_type = ReadoutType.single_shot
 
     def sweep_labels(self):
         return [("iteration", ""), ("frequency", "Hz"), ("amplitude", ""), ("state", "")]
@@ -507,9 +511,9 @@ class ReadoutOptimization(QTLQMExperiment):
                         with for_(*from_array(op, sweep_state)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
                         # Measure the state of the resonator
                             with if_(op==1):
-                                play("x180" * amp(self.station.config[element].X180_amplitude), f"{element}")
-                                wait(100, f"{element}")
-                            align(f"{element}", f"resonator_{element}")
+                                play("x180" * amp(self.station.config[element].X180_amplitude), f"drive_{element}")
+                                wait(100, f"drive_{element}")
+                            align(f"drive_{element}", f"resonator_{element}")
                             measure(
                                 "readout" * amp(ro_ampl/self.station.config[element].readout_amplitude),
                                 f"resonator_{element}",

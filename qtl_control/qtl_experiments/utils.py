@@ -1,5 +1,13 @@
 import numpy as np
+
+from enum import Enum
+
 from qm.qua import *
+
+
+class ReadoutType(Enum):
+    average = 1
+    single_shot = 2
 
 
 def notch_res(f, f0, a, alpha, phi, kext, kint):

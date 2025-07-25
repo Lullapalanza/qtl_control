@@ -2,6 +2,7 @@ import time
 import json
 
 import numpy as np
+from enum import Enum
 
 from qm import QuantumMachinesManager
 from qm.octave import QmOctaveConfig
@@ -61,6 +62,11 @@ class MockQMManager():
     pass
 
 
+class ReadoutType(Enum):
+    average = 1
+    single_shot = 2
+
+
 class QTLStation:
     def __init__(self, config):
         # QM specific part
@@ -105,7 +111,7 @@ class QTLStation:
         self.config = self.pl_config | self.qubit_config
 
         # Make config
-        qm_config = generate_config(
+        configuration = generate_config(
             [],
             self.rf_output_channels,
             self.rf_input_channels,
@@ -115,7 +121,7 @@ class QTLStation:
 
         # For debug purposes
         with open("qtl_qm_config.json", "w+") as f:
-            json.dump(qm_config, f)
+            json.dump(configuration, f)
 
         if not self.mock:
             octave_config = QmOctaveConfig()
@@ -127,7 +133,7 @@ class QTLStation:
                 octave=octave_config
             )
 
-            self.qm = self.qm_manager.open_qm(qm_config)
+            self.qm = self.qm_manager.open_qm(configuration)
             def exit_handler():
                 print("Cleaning up, closing QM")
                 self.qm.close()
@@ -151,7 +157,7 @@ class QTLStation:
 
         self.elements = elements
 
-        qm_config=generate_config(
+        configuration = generate_config(
             elements,
             self.rf_output_channels,
             self.rf_input_channels,
@@ -160,11 +166,11 @@ class QTLStation:
         )
 
         with open("qtl_qm_config.json", "w+") as f:
-            json.dump(qm_config, f)
+            json.dump(configuration, f)
 
         if not self.mock:
             self.qm.close()
-            self.qm = self.qm_manager.open_qm(qm_config)
+            self.qm = self.qm_manager.open_qm(configuration)
         else:
             self.qm = MockQM()
 
@@ -173,8 +179,8 @@ class QTLStation:
             print(f"{element}:\n{self.config[element].get_tree(indent=1)}")
         print(f"PL:\n{self.pl_config["PL"].get_tree(indent=1)}")
 
-    def execute(self, element, program, Navg, single_shot=False):
-        if single_shot: # Single shot
+    def execute(self, element, program, Navg, readout_type):
+        if readout_type == ReadoutType.single_shot: # Single shot
             job = self.qm.execute(program)
             res_handles = job.result_handles
             res_handles.wait_for_all_values()
