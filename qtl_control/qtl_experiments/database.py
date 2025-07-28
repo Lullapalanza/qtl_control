@@ -5,6 +5,7 @@ import xarray as xr
 from datetime import datetime
 
 from qtl_control.qtl_experiments.experiment import ExperimentResult
+from qtl_control.qtl_experiments import experiments_dict as default_experiments
 
 class FileSystemDB:
     """
@@ -13,7 +14,7 @@ class FileSystemDB:
     def __init__(self, db_name, path, experiment_dict=None):
         self.db_path = path + db_name
         self.current_id = -1
-        self.experiment_dict = experiment_dict
+        self.experiment_dict = experiment_dict or default_experiments
 
         if os.path.exists(self.db_path):
             with open(self.db_path + "/id.txt", "r") as f:
