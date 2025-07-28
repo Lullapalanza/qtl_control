@@ -1,6 +1,10 @@
+import json
+
 import numpy as np
 import xarray as xr
 import matplotlib.pyplot as plt
+
+from inspect import signature, _empty
 
 from qtl_control.qtl_experiments.utils import ReadoutType
 
@@ -63,11 +67,15 @@ class QTLQMExperiment:
         program = self.get_program(element, Navg, sweeps, **kwargs)
         results = self.station.execute(element, program, Navg, readout_type=self.readout_type)
 
+        run_kwargs = {
+            k: v.default for k, v in signature(self.get_program).parameters.items() if v.default is not _empty
+        } | kwargs
+
         sweep_labels = [sl[0] for sl in self.sweep_labels()]
         ds = xr.Dataset(
             data_vars={"iq": (sweep_labels, results)},
             coords={sweep_label: values for sweep_label, values in zip(sweep_labels, sweeps)},
-            attrs={"element": element}
+            attrs={"element": element, "run_kwargs": json.dumps(run_kwargs)}
         )
 
         for label, unit in self.sweep_labels():

@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import xarray as xr
 import scipy.optimize as opt
@@ -200,12 +202,10 @@ class Rabi(QTLQMExperiment):
         return {
             data.attrs["element"]: {
                 "X180_amplitude": rabi_f,
+                "X180_duration": json.loads(data.attrs["run_kwargs"])["pulse_duration"],
                 "readout_discriminator": ReadoutDisc(g_state_readout, np.conjugate(e_state_readout)/np.abs(e_state_readout)**2)
             }
         }
-    #rabi_f, g_state_readout, np.conjugate(e_state_readout)/np.abs(e_state_readout)**2
-
-
 
 
 class TimeRabi(QTLQMExperiment):
@@ -341,10 +341,12 @@ class Ramsey2F(QTLQMExperiment):
         ax.legend()
 
         if any([_det > sum(np.abs(data.coords["detuning"])) for _det in detunes]):
-            return self.station.config[element].frequency + np.sign(data.coords["detuning"][0] - data.coords["detuning"][1]) * sum([np.abs(_det) for _det in detunes]) / 2
+            new_f =  self.station.config[element].frequency + np.sign(data.coords["detuning"][0] - data.coords["detuning"][1]) * sum([np.abs(_det) for _det in detunes]) / 2
         else:
-            return self.station.config[element].frequency + sum([-np.abs(_det) * np.sign(data_detung) for _det, data_detung in zip(detunes, data.coords["detuning"])]) * 0.5
+            new_f = self.station.config[element].frequency + sum([-np.abs(_det) * np.sign(data_detung) for _det, data_detung in zip(detunes, data.coords["detuning"])]) * 0.5
     
+        return {element: {"frequency": new_f}}
+
             
 
 class T1(QTLQMExperiment):

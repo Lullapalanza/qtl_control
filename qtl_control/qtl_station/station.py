@@ -112,7 +112,7 @@ class QTLStation:
 
         # Make config
         configuration = generate_config(
-            [],
+            self.elements,
             self.rf_output_channels,
             self.rf_input_channels,
             self.analog_output_channels,
@@ -142,9 +142,11 @@ class QTLStation:
             self.qm = MockQM()
             self.qm_manager = MockQMManager()
 
-    def reload_config(self, elements, new_settings=None):
-        new_settings = new_settings or dict()
 
+    def reload_config(self, elements, new_settings=None):
+        self.elements = elements
+
+        new_settings = new_settings or dict()
         # TODO: Only supports depth 2 dicts
         for elem, settings in new_settings.items():
             subtree = self.config[elem]
@@ -155,10 +157,8 @@ class QTLStation:
                 else:
                     subtree[k] = v
 
-        self.elements = elements
-
         configuration = generate_config(
-            elements,
+            self.elements,
             self.rf_output_channels,
             self.rf_input_channels,
             self.analog_output_channels,
@@ -198,3 +198,14 @@ class QTLStation:
                 progress_counter(iteration, Navg, start_time=results.get_start_time())
 
         return S
+
+
+class change_station:
+    def __init__(self, station):
+        self.station = station
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_Type, exc_val, exc_tb):
+        self.station.reload_config(self.station.elements)

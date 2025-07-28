@@ -1,3 +1,5 @@
+from qtl_control.qtl_station.station import change_station
+
 def test_config_load(station):
     station.reload_config(["Q7"])
     assert station.config["Q7"].frequency == 5.8e9
@@ -5,4 +7,11 @@ def test_config_load(station):
 
     station.config["Q7"].frequency = 5.9e9
     station.reload_config(["Q7"])
+    assert station.config["Q7"].frequency == 5.9e9
+
+def test_change_context(station):
+    station.reload_config(["Q7"])
+    assert station.config["Q7"].frequency == 5.8e9
+    with change_station(station):
+        station.config["Q7"].frequency = 5.9e9
     assert station.config["Q7"].frequency == 5.9e9

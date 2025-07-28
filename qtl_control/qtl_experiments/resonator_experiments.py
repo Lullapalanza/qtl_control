@@ -57,7 +57,13 @@ class ReadoutResonatorSpectroscopy(QTLQMExperiment):
             )
             axs[0].legend()
 
-        return float(notch_res_abs(result.data.coords["readout_frequency"], *res).idxmin())
+        element = result.data.attrs["element"]
+        f0 = float(notch_res_abs(result.data.coords["readout_frequency"], *res).idxmin())
+
+        return {element: {
+            "readout_frequency": f0
+        }}
+    
 
 
 class ReadoutFluxSpectroscopy(QTLQMExperiment):
@@ -100,7 +106,7 @@ class ReadoutFluxSpectroscopy(QTLQMExperiment):
     def analyze_data(self, result, p0=None):
         data = result.data
 
-        frequencies = []
+        fits = []
         amplitudes = data.coords["amplitude"]
         for a in amplitudes:
             data_slice = np.abs(data["iq"].sel(amplitude=a))
@@ -110,7 +116,9 @@ class ReadoutFluxSpectroscopy(QTLQMExperiment):
                 data_slice,
                 p0=[float(data_slice["readout_frequency"].mean()), 0.001, 0, 10e6, 10e6]
             )
-            frequencies.append(res[0])
+            fits.append(res)
+
+        frequencies = [_[0] for _ in fits]
 
         def cosine_dep(v, period, offset, a, b):
             return a * np.cos(2 * np.pi * (v-offset)/period) + b
@@ -138,7 +146,12 @@ class ReadoutFluxSpectroscopy(QTLQMExperiment):
 
         axs[0].legend(bbox_to_anchor=(1.75, 0.8))
 
-        return res
+        element = data.attrs["element"]
+
+        return {element: {
+            "flux": {"dc_volt": res[1]}},
+        }
+
 
 class PunchOut(QTLQMExperiment):
     experiment_name = "QM-PunchOut"
