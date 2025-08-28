@@ -345,7 +345,7 @@ class Ramsey2F(QTLQMExperiment):
         else:
             new_f = self.station.config[element].frequency + sum([-np.abs(_det) * np.sign(data_detung) for _det, data_detung in zip(detunes, data.coords["detuning"])]) * 0.5
     
-        return {element: {"frequency": new_f}}
+        return {element: {"frequency": int(new_f)}}
 
             
 
@@ -353,7 +353,7 @@ class T1(QTLQMExperiment):
     experiment_name = "QM-T1"
 
     def sweep_labels(self):
-        return [("time", "ns"), ]
+        return [("time", "s"), ]
 
     def get_program(self, element, Navg, sweeps, wait_after=50000):
         delay_sweep = sweeps[0]//4
