@@ -24,6 +24,7 @@ class StationNode:
         else:
             print(f"No attr {key}")
 
+
 @dataclass
 class OctaveRFChannel(StationNode):
     channel_id: str
