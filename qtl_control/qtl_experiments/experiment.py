@@ -44,9 +44,12 @@ class ExperimentResult:
 
         return axs
 
-    def iq_plot(self):
-        fig, axs = plt.subplots(constrained_layout=True)
-        fig.suptitle(self.get_title())
+    def iq_plot(self, existing_axs=None):
+        if existing_axs is None:
+            fig, axs = plt.subplots(constrained_layout=True)
+            fig.suptitle(self.get_title())
+        else:
+            axs = existing_axs
 
         axs.scatter(
             self.data["iq"].real,
@@ -54,6 +57,8 @@ class ExperimentResult:
         )
         axs.set_xlabel(r"$I$ (V)")
         axs.set_ylabel(r"$Q$ (V)")
+
+        return axs
 
 
 class QTLQMExperiment:

@@ -7,7 +7,8 @@ from .qubit_experiments import (
     Ramsey2F,
     T1,
     SingleShotReadout,
-    ReadoutOptimization
+    ReadoutOptimization,
+    AllXY
 )
 from .resonator_experiments import (
     ReadoutResonatorSpectroscopy, ReadoutFluxSpectroscopy, PunchOut, DispersiveShift
@@ -25,7 +26,8 @@ experiments_dict = {
         Ramsey2F,
         T1,
         SingleShotReadout,
-        ReadoutOptimization
+        ReadoutOptimization,
+        AllXY
     ] + [
         ReadoutResonatorSpectroscopy,
         ReadoutFluxSpectroscopy,

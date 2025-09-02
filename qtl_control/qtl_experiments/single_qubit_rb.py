@@ -92,7 +92,7 @@ def generate_sequence_for_depth(depth):
 
 def play_sequence(sequence_list, start, N, element):
     i = declare(int)
-    with for_(i, start, i <= N + start, i+1):
+    with for_(i, start, i < N + start, i+1):
         with switch_(sequence_list[i], unsafe=True):
             with case_(0):
                 wait(100//4, f"drive_{element}")
@@ -175,7 +175,9 @@ class SingleQubitRB(QTLQMExperiment):
         depth_sweep = sweeps[0]
         depth_sequencies = []
         for d in depth_sweep:
-            depth_sequencies += generate_sequence_for_depth(d)
+            seq = generate_sequence_for_depth(d)
+            print(seq)
+            depth_sequencies += seq
 
         seq_indexes = [0] + [sum(depth_sweep[:_]) for _ in range(1, len(depth_sweep))]
 
@@ -195,19 +197,21 @@ class SingleQubitRB(QTLQMExperiment):
             seqs_ind = declare(int, value=seq_indexes)
 
 
-            with for_(i, 0, i < len(depth_sweep), i+1):
-                with for_(n, 0, n < Navg, n+1):
+            with for_(n, 0, n < Navg, n+1):
+                with for_(i, 0, i < len(depth_sweep), i+1):
                     align(f"drive_{element}", f"resonator_{element}")
                     with strict_timing_():
                         play_sequence(depth_seqs, seqs_ind[i], depths[i], element)
-                        wait(100, f"drive_{element}") # 400ns
+                    wait(100, f"drive_{element}") # 400ns
                     align(f"drive_{element}", f"resonator_{element}")
                     standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
-                    save(n, n_stream)
+                    align(f"drive_{element}", f"resonator_{element}")
+                save(n, n_stream)
         
             with stream_processing():
-                I_stream.average().buffer(len(depth_sweep)).save("I")
-                Q_stream.average().buffer(len(depth_sweep)).save("Q")
+                I_stream.buffer(len(depth_sweep)).average().save("I")
+                Q_stream.buffer(len(depth_sweep)).average().save("Q")
                 n_stream.save("iteration")
         
         return rb_prog
+    

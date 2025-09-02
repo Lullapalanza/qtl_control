@@ -111,7 +111,7 @@ def generate_config(
     FLUX_AMP = 0.45
 
     GDRAG_SIGMA = SQ_PULSE_LEN / 4
-    GDRAG_COEFF = 0
+    GDRAG_COEFF = 10
     GDRAG_ALPHA = -200 * u.MHz
     GDRAG_STARK = 0
     
@@ -140,19 +140,20 @@ def generate_config(
 
     for elem in elements_to_run:
         amp = element_conn[elem].X180_amplitude
+        drag_amp = element_conn[elem].drag_coef
         WAVEFORMS_CONFIG.update({
             f"{elem}_x180_I_wf": {"type": "arbitrary", "samples": (SQ_gaussian*amp).tolist()},
-            f"{elem}_x180_Q_wf": {"type": "arbitrary", "samples": (SQ_gaus_der*amp).tolist()},
+            f"{elem}_x180_Q_wf": {"type": "arbitrary", "samples": (SQ_gaus_der*amp*drag_amp).tolist()},
             f"{elem}_x90_I_wf": {"type": "arbitrary", "samples": (SQ_gaussian*amp/2).tolist()},
-            f"{elem}_x90_Q_wf": {"type": "arbitrary", "samples": (SQ_gaus_der*amp/2).tolist()},
+            f"{elem}_x90_Q_wf": {"type": "arbitrary", "samples": (SQ_gaus_der*amp*drag_amp/2).tolist()},
             f"{elem}_minus_x90_I_wf": {"type": "arbitrary", "samples": (-SQ_gaussian*amp/2).tolist()},
-            f"{elem}_minus_x90_Q_wf": {"type": "arbitrary", "samples": (-SQ_gaus_der*amp/2).tolist()},
+            f"{elem}_minus_x90_Q_wf": {"type": "arbitrary", "samples": (-SQ_gaus_der*amp*drag_amp/2).tolist()},
 
-            f"{elem}_y180_I_wf": {"type": "arbitrary", "samples": (-SQ_gaus_der*amp).tolist()},
+            f"{elem}_y180_I_wf": {"type": "arbitrary", "samples": (-SQ_gaus_der*amp*drag_amp).tolist()},
             f"{elem}_y180_Q_wf": {"type": "arbitrary", "samples": (SQ_gaussian*amp).tolist()},
-            f"{elem}_y90_I_wf": {"type": "arbitrary", "samples": (-SQ_gaus_der*amp/2).tolist()},
+            f"{elem}_y90_I_wf": {"type": "arbitrary", "samples": (-SQ_gaus_der*amp*drag_amp/2).tolist()},
             f"{elem}_y90_Q_wf": {"type": "arbitrary", "samples": (SQ_gaussian*amp/2).tolist()},
-            f"{elem}_minus_y90_I_wf": {"type": "arbitrary", "samples": (SQ_gaus_der*amp/2).tolist()},
+            f"{elem}_minus_y90_I_wf": {"type": "arbitrary", "samples": (SQ_gaus_der*amp*drag_amp/2).tolist()},
             f"{elem}_minus_y90_Q_wf": {"type": "arbitrary", "samples": (-SQ_gaussian*amp/2).tolist()},
         })
 

@@ -28,7 +28,7 @@ def standard_readout(element, I, I_st, Q, Q_st, wait_after):
         dual_demod.full("minus_sin", "cos", Q),
     )
     # Wait for the resonator to deplete
-    wait(wait_after//4, element)
     # Save the 'I' & 'Q' quadratures to their respective streams
     save(I, I_st)
     save(Q, Q_st)
+    wait(wait_after//4, element)

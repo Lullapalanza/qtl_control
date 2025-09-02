@@ -134,7 +134,7 @@ class Rabi(QTLQMExperiment):
                 with for_(*from_array(a, amp_range)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
                     # Play the qubit pulse with a variable amplitude (pre-factor to the pulse amplitude defined in the config)
                     
-                    play("gauss" * amp(a), f"drive_{element}", duration=pulse_duration * u.ns)
+                    play("gauss" * amp(a), f"drive_{element}")#, duration=pulse_duration * u.ns)
                     # play("gauss" * amp(a), element)
                     
                     # Align the two elements to measure after playing the qubit pulse.
@@ -572,3 +572,108 @@ class ReadoutOptimization(QTLQMExperiment):
             dims=["frequency", "amplitude"]
         )
         fid_ds.plot(ax=ax, x="frequency")
+
+
+class AllXY(QTLQMExperiment):
+    experiment_name = "QM-AllXY"
+
+    def sweep_labels(self):
+        return [("gate", "")]
+    
+    def get_program(self, element, Navg, sweeps, wait_after=100000):
+        gate_indexes = sweeps[0]
+
+        with program() as allxy_prog:
+            i = declare(int)
+
+            I = declare(fixed)
+            Q = declare(fixed)
+            n = declare(int)
+
+            I_stream = declare_stream()
+            Q_stream = declare_stream()
+            n_stream = declare_stream()
+
+            with for_(n, 0, n < Navg, n+1):
+                with for_(i, 0, i < len(gate_indexes), i+1):
+                    with switch_(i):
+                        with case_(0):
+                            wait(100//4, f"drive_{element}")
+                            wait(100//4, f"drive_{element}")
+                        with case_(1):
+                            play(f"{element}_x180", f"drive_{element}")
+                            play(f"{element}_x180", f"drive_{element}")
+                        with case_(2):
+                            play(f"{element}_y180", f"drive_{element}")
+                            play(f"{element}_y180", f"drive_{element}")
+                        with case_(3):
+                            play(f"{element}_x180", f"drive_{element}")
+                            play(f"{element}_y180", f"drive_{element}")
+                        with case_(4):
+                            play(f"{element}_y180", f"drive_{element}")
+                            play(f"{element}_x180", f"drive_{element}")
+                        
+                        with case_(5):
+                            play(f"{element}_x90", f"drive_{element}")
+                            wait(100//4, f"drive_{element}")
+                        with case_(6):
+                            play(f"{element}_y90", f"drive_{element}")
+                            wait(100//4, f"drive_{element}")
+                        with case_(7):
+                            play(f"{element}_x90", f"drive_{element}")
+                            play(f"{element}_y90", f"drive_{element}")
+                        with case_(8):
+                            play(f"{element}_y90", f"drive_{element}")
+                            play(f"{element}_x90", f"drive_{element}")
+
+                        with case_(9):
+                            play(f"{element}_x90", f"drive_{element}")
+                            play(f"{element}_y180", f"drive_{element}")
+                        with case_(10):
+                            play(f"{element}_y90", f"drive_{element}")
+                            play(f"{element}_x180", f"drive_{element}")
+                        with case_(11):
+                            play(f"{element}_x180", f"drive_{element}")
+                            play(f"{element}_y90", f"drive_{element}")
+                        with case_(12):
+                            play(f"{element}_y180", f"drive_{element}")
+                            play(f"{element}_x90", f"drive_{element}")
+
+                        with case_(13):
+                            play(f"{element}_x90", f"drive_{element}")
+                            play(f"{element}_x180", f"drive_{element}")
+                        with case_(14):
+                            play(f"{element}_x180", f"drive_{element}")
+                            play(f"{element}_x90", f"drive_{element}")
+                        with case_(15):
+                            play(f"{element}_y90", f"drive_{element}")
+                            play(f"{element}_y180", f"drive_{element}")
+                        with case_(16):
+                            play(f"{element}_y180", f"drive_{element}")
+                            play(f"{element}_y90", f"drive_{element}")
+                        
+                        with case_(17):
+                            play(f"{element}_x180", f"drive_{element}")
+                            wait(100//4, f"drive_{element}")
+                        with case_(18):
+                            play(f"{element}_y180", f"drive_{element}")
+                            wait(100//4, f"drive_{element}")
+                        with case_(19):
+                            play(f"{element}_x90", f"drive_{element}")
+                            play(f"{element}_x90", f"drive_{element}")
+                        with case_(20):
+                            play(f"{element}_y90", f"drive_{element}")
+                            play(f"{element}_y90", f"drive_{element}")
+                    
+                    wait(100, f"drive_{element}")
+                    align(f"drive_{element}", f"resonator_{element}")
+                    standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
+                    align(f"drive_{element}", f"resonator_{element}")
+                    save(n, n_stream)
+
+            with stream_processing():
+                I_stream.buffer(len(gate_indexes)).average().save("I")
+                Q_stream.buffer(len(gate_indexes)).average().save("Q")
+                n_stream.save("iteration")
+
+        return allxy_prog

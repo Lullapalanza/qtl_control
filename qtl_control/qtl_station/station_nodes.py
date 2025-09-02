@@ -67,6 +67,7 @@ class TransmonQubit(StationNode):
     frequency: float = 5.8e9
     X180_duration: int = 100
     X180_amplitude: float = 0.5
+    drag_coef: float = 0.0
     flux: Optional[OPXAnalogChannel] = None
     readout_frequency: float = 5.8e9
     readout_amplitude: float = 0.1
