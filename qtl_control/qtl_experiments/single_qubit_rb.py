@@ -22,10 +22,11 @@ Yh_m = np.sqrt(2) * np.array([
     [1, -1],
     [1, 1]
 ]) / 2
-Yhm_m = np.sqrt(2) * np.array([
-    [1, 1],
-    [-1, 1]
-]) / 2
+Yhm_m = np.transpose(np.conjugate(Yh_m))
+# Yhm_m = np.sqrt(2) * np.array([
+#     [1, 1],
+#     [-1, 1]
+# ]) / 2
 
 
 CLIFFORDS = [
@@ -34,28 +35,28 @@ CLIFFORDS = [
     Y_m, # 2, Y180
     Y_m @ X_m, # 3 Y180, X180
 
-    Xh_m @ Yh_m, # 4
-    Xh_m @ Yhm_m, # 5
-    Xhm_m @ Yh_m, # 6
-    Xhm_m @ Yhm_m, # 7
+    Yh_m @ Xh_m, # 4 x90, y90
+    Yhm_m @ Xh_m, # 5 x90, -y90
+    Yh_m @ Xhm_m, # 6 -x90, y90
+    Yhm_m @ Xhm_m, # 7  -x90, -y90
 
-    Yh_m @ Xh_m, #8
-    Yh_m @ Xhm_m, #9
-    Yhm_m @ Xh_m, #10
-    Yhm_m @ Xhm_m, #11
+    Xh_m @ Yh_m, #8 y90, x90
+    Xhm_m @ Yh_m, #9 y90, -x90
+    Xh_m @ Yhm_m, #10 -y90, x90
+    Xhm_m @ Yhm_m, #11 -y90, -x90
 
-    Xh_m, #12
-    Xhm_m, #13
-    Yh_m, #14
-    Yhm_m, #15
+    Xh_m, #12 x90
+    Xhm_m, #13 -x90
+    Yh_m, #14 y90
+    Yhm_m, #15 -y90
 
-    Xhm_m @ Yh_m @ Xh_m, #16 
-    Xhm_m @ Yhm_m @ Xh_m, #17
-    X_m @ Yh_m, #18
-    X_m @ Yhm_m, #19
+    Xh_m @ Yh_m @ Xhm_m, #16 
+    Xh_m @ Yhm_m @ Xhm_m, #17
+    Yh_m @ X_m, #18
+    Yhm_m @ X_m, #19
 
-    Y_m @ Xh_m, #20
-    Y_m @ Xhm_m, #21
+    Xh_m @ Y_m, #20
+    Xhm_m @ Y_m, #21
     Xh_m @ Yh_m @ Xh_m, #22
     Xhm_m @ Yh_m @ Xhm_m, #23
 ]
@@ -72,7 +73,7 @@ for i in range(24):
 INVERSE_GATES = []
 for i in range(24):
     op = CLIFFORDS[i]
-    invop = np.conjugate(op)
+    invop = np.transpose(np.conjugate(op))
     for j in range(24):
         if np.allclose(invop, CLIFFORDS[j]) or np.allclose(-invop, CLIFFORDS[j]):
             INVERSE_GATES.append(j)

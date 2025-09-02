@@ -21,5 +21,9 @@ def test_sequence_inverse():
     assert get_sequence_inverse([2, 2]) == 0
     assert get_sequence_inverse([1]) == 1
 
+    assert get_sequence_inverse([13, 15]) == 8
+    assert get_sequence_inverse([13, 15, 13]) == 22
+
+
 def test_sequence_depth():
     assert len(generate_sequence_for_depth(5)) == 5
