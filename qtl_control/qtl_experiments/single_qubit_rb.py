@@ -89,79 +89,79 @@ def generate_sequence_for_depth(depth):
     sequence.append(inverse)
     return sequence
 
-def play_sequence(sequence_list, start, N, element, pi_amplitude):
+def play_sequence(sequence_list, start, N, element):
     i = declare(int)
     with for_(i, start, i <= N + start, i+1):
         with switch_(sequence_list[i], unsafe=True):
             with case_(0):
-                wait(100//4, element)
+                wait(100//4, f"drive_{element}")
             with case_(1):
-                play("x180", element)
+                play(f"{element}_x180", f"drive_{element}")
             with case_(2):
-                play("y180", element)
+                play(f"{element}_y180", f"drive_{element}")
             with case_(3):
-                play("y180", element)
-                play("x180", element)
+                play(f"{element}_y180", f"drive_{element}")
+                play(f"{element}_x180", f"drive_{element}")
             with case_(4):
-                play("x90", element)
-                play("y90", element)
+                play(f"{element}_x90", f"drive_{element}")
+                play(f"{element}_y90", f"drive_{element}")
             with case_(5):
-                play("x90", element)
-                play("-y90", element)
+                play(f"{element}_x90", f"drive_{element}")
+                play(f"{element}_-y90", f"drive_{element}")
             with case_(6):
-                play("-x90", element)
-                play("y90", element)
+                play(f"{element}_-x90", f"drive_{element}")
+                play(f"{element}_y90", f"drive_{element}")
             with case_(7):
-                play("-x90", element)
-                play("-y90", element)
+                play(f"{element}_-x90", f"drive_{element}")
+                play(f"{element}_-y90", f"drive_{element}")
             with case_(8):
-                play("y90", element)
-                play("x90", element)
+                play(f"{element}_y90", f"drive_{element}")
+                play(f"{element}_x90", f"drive_{element}")
             with case_(9):
-                play("y90", element)
-                play("-x90", element)
+                play(f"{element}_y90", f"drive_{element}")
+                play(f"{element}_-x90", f"drive_{element}")
             with case_(10):
-                play("-y90", element)
-                play("x90", element)
+                play(f"{element}_-y90", f"drive_{element}")
+                play(f"{element}_x90", f"drive_{element}")
             with case_(11):
-                play("-y90", element)
-                play("-x90", element)
+                play(f"{element}_-y90", f"drive_{element}")
+                play(f"{element}_-x90", f"drive_{element}")
             with case_(12):
-                play("x90", element)
+                play(f"{element}_x90", f"drive_{element}")
             with case_(13):
-                play("-x90", element)
+                play(f"{element}_-x90", f"drive_{element}")
             with case_(14):
-                play("y90", element)
+                play(f"{element}_y90", f"drive_{element}")
             with case_(15):
-                play("-y90", element)
+                play(f"{element}_-y90", f"drive_{element}")
             with case_(16):
-                play("-x90", element)
-                play("y90", element)
-                play("x90", element)
+                play(f"{element}_-x90", f"drive_{element}")
+                play(f"{element}_y90", f"drive_{element}")
+                play(f"{element}_x90", f"drive_{element}")
             with case_(17):
-                play("-x90", element)
-                play("-y90", element)
-                play("x90", element)
+                play(f"{element}_-x90", f"drive_{element}")
+                play(f"{element}_-y90", f"drive_{element}")
+                play(f"{element}_x90", f"drive_{element}")
             with case_(18):
-                play("x180", element)
-                play("y90", element)
+                play(f"{element}_x180", f"drive_{element}")
+                play(f"{element}_y90", f"drive_{element}")
             with case_(19):
-                play("x180", element)
-                play("-y90", element)
+                play(f"{element}_x180", f"drive_{element}")
+                play(f"{element}_-y90", f"drive_{element}")
             with case_(20):
-                play("y180", element)
-                play("x90", element)
+                play(f"{element}_y180", f"drive_{element}")
+                play(f"{element}_x90", f"drive_{element}")
             with case_(21):
-                play("y180", element)
-                play("-x90", element)
+                play(f"{element}_y180", f"drive_{element}")
+                play(f"{element}_-x90", f"drive_{element}")
             with case_(22):
-                play("x90", element)
-                play("y90", element)
-                play("x90", element)
+                play(f"{element}_x90", f"drive_{element}")
+                play(f"{element}_y90", f"drive_{element}")
+                play(f"{element}_x90", f"drive_{element}")
             with case_(23):
-                play("-x90", element)
-                play("y90", element)
-                play("-x90", element)
+                play(f"{element}_-x90", f"drive_{element}")
+                play(f"{element}_y90", f"drive_{element}")
+                play(f"{element}_-x90", f"drive_{element}")
 
 
 class SingleQubitRB(QTLQMExperiment):
@@ -198,7 +198,7 @@ class SingleQubitRB(QTLQMExperiment):
                 with for_(n, 0, n < Navg, n+1):
                     align(f"drive_{element}", f"resonator_{element}")
                     with strict_timing_():
-                        play_sequence(depth_seqs, seqs_ind[i], depths[i], f"drive_{element}", self.station.config[element].X180_amplitude)
+                        play_sequence(depth_seqs, seqs_ind[i], depths[i], element)
                         wait(100, f"drive_{element}") # 400ns
                     align(f"drive_{element}", f"resonator_{element}")
                     standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
