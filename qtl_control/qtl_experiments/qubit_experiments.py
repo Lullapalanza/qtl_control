@@ -287,13 +287,13 @@ class Ramsey2F(QTLQMExperiment):
                     update_frequency(f"drive_{element}", f) 
                     with for_(*from_array(tau, delay_sweep)):
                         # 1st x90 gate
-                        play("x90" * amp(self.station.config[element].X180_amplitude), f"drive_{element}")
+                        play(f"{element}_x90", f"drive_{element}")
                         # Wait a varying idle time
                         wait(tau, f"drive_{element}")
                         # 2nd x90 gate
-                        play("x90" * amp(self.station.config[element].X180_amplitude), f"drive_{element}")
+                        play(f"{element}_x90", f"drive_{element}")
                         # Align the two elements to measure after playing the qubit pulse.
-                        wait(100, f"drive_{element}")
+                        wait(400 * u.ns, f"drive_{element}")
                         align(f"drive_{element}", f"resonator_{element}")
                         # Measure the state of the resonator
                         standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
@@ -374,7 +374,7 @@ class T1(QTLQMExperiment):
                     # Play the qubit pulse with a variable amplitude (pre-factor to the pulse amplitude defined in the config)
                     
                     # play("x180" * amp(a), "qubit")
-                    play("x180" * amp(self.station.config[element].X180_amplitude), f"drive_{element}")
+                    play(f"{element}_x180", f"drive_{element}")
                     # wait(t, "qubit")
                     wait(t, f"drive_{element}") # in units of 4 ns
                     # Align the two elements to measure after playing the qubit pulse.
@@ -442,7 +442,7 @@ class SingleShotReadout(QTLQMExperiment):
                 with for_(*from_array(op, sweep)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
                 # Measure the state of the resonator
                     with if_(op==1):
-                        play("x180" * amp(self.station.config[element].X180_amplitude), f"drive_{element}")
+                        play(f"{element}_x180", f"drive_{element}")
                         wait(400 * u.ns, f"drive_{element}")
                     align(f"drive_{element}", f"resonator_{element}")
                     standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
@@ -513,8 +513,8 @@ class ReadoutOptimization(QTLQMExperiment):
                         with for_(*from_array(op, sweep_state)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
                         # Measure the state of the resonator
                             with if_(op==1):
-                                play("x180" * amp(self.station.config[element].X180_amplitude), f"drive_{element}")
-                                wait(100, f"drive_{element}")
+                                play(f"{element}_x180", f"drive_{element}")
+                                wait(400 * u.ns, f"drive_{element}")
                             align(f"drive_{element}", f"resonator_{element}")
                             measure(
                                 "readout" * amp(ro_ampl/self.station.config[element].readout_amplitude),

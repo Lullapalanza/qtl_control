@@ -11,5 +11,5 @@ def station():
         db_path="tests/",
         db_name="test_db"
     )
-    station.reload_config(["Q7"])
+    station.reload_config(["Q7", "Q4"])
     return station

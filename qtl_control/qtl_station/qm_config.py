@@ -57,22 +57,28 @@ def generate_config(
         "saturation": "saturation_pulse",
         "pi": "pi_pulse",
         "pi_half": "pi_half_pulse",
-        "x90": "x90_pulse",
-        "x180": "x180_pulse",
-        "-x90": "-x90_pulse",
-        "y90": "y90_pulse",
-        "y180": "y180_pulse",
-        "-y90": "-y90_pulse",
         "gauss": "gauss_pulse"
     }
+
+    OPERATIONS_PER_ELEMENT = {}
+
+    for element in elements_to_run:
+        OPERATIONS_PER_ELEMENT.update({element: {
+            f"{element}_x90": f"{element}_x90_pulse",
+            f"{element}_x180": f"{element}_x180_pulse",
+            f"{element}_-x90": f"{element}_-x90_pulse",
+            f"{element}_y90": f"{element}_y90_pulse",
+            f"{element}_y180": f"{element}_y180_pulse",
+            f"{element}_-y90": f"{element}_-y90_pulse",     
+        }})
 
     # ADD DRIVES
     ELEMENTS_CONFIG = {
         f"drive_{qb_id}": {
-            "RF_inputs": {"port": ("oct1", int(transmon.drive.channel_id.strip("RF")))},
-            "intermediate_frequency": transmon.frequency - transmon.drive.LO_frequency,
-            "operations": OPERATIONS
-        } for qb_id, transmon in element_conn.items()
+            "RF_inputs": {"port": ("oct1", int(element_conn[qb_id].drive.channel_id.strip("RF")))},
+            "intermediate_frequency": element_conn[qb_id].frequency - element_conn[qb_id].drive.LO_frequency,
+            "operations": OPERATIONS | OPERATIONS_PER_ELEMENT[qb_id]
+        } for qb_id in elements_to_run
     }
     # ADD READOUT
     ELEMENTS_CONFIG.update({
@@ -120,7 +126,7 @@ def generate_config(
         )
     )
 
-    X180_amplitude = 0.1473
+    # X180_amplitude = 0.1473
     WAVEFORMS_CONFIG = {
         "const_wf": {"type": "constant", "sample": CONST_AMP},
         "saturation_drive_wf": {"type": "constant", "sample": SATURATION_AMP},
@@ -130,20 +136,26 @@ def generate_config(
         "zero_wf": {"type": "constant", "sample": 0.0},
         "gauss_I_wf": {"type": "arbitrary", "samples": SQ_gaussian.tolist()},
         "gauss_Q_wf": {"type": "arbitrary", "samples": SQ_gaus_der.tolist()},
-        "x180_I_wf": {"type": "arbitrary", "samples": (SQ_gaussian*X180_amplitude).tolist()},
-        "x180_Q_wf": {"type": "arbitrary", "samples": (SQ_gaus_der*X180_amplitude).tolist()},
-        "x90_I_wf": {"type": "arbitrary", "samples": (SQ_gaussian*X180_amplitude/2).tolist()},
-        "x90_Q_wf": {"type": "arbitrary", "samples": (SQ_gaus_der*X180_amplitude/2).tolist()},
-        "minus_x90_I_wf": {"type": "arbitrary", "samples": (-SQ_gaussian*X180_amplitude/2).tolist()},
-        "minus_x90_Q_wf": {"type": "arbitrary", "samples": (-SQ_gaus_der*X180_amplitude/2).tolist()},
-
-        "y180_I_wf": {"type": "arbitrary", "samples": (-SQ_gaus_der*X180_amplitude).tolist()},
-        "y180_Q_wf": {"type": "arbitrary", "samples": (SQ_gaussian*X180_amplitude).tolist()},
-        "y90_I_wf": {"type": "arbitrary", "samples": (-SQ_gaus_der*X180_amplitude/2).tolist()},
-        "y90_Q_wf": {"type": "arbitrary", "samples": (SQ_gaussian*X180_amplitude/2).tolist()},
-        "minus_y90_I_wf": {"type": "arbitrary", "samples": (SQ_gaus_der*X180_amplitude/2).tolist()},
-        "minus_y90_Q_wf": {"type": "arbitrary", "samples": (-SQ_gaussian*X180_amplitude/2).tolist()},
     }
+
+    for elem in elements_to_run:
+        amp = element_conn[elem].X180_amplitude
+        WAVEFORMS_CONFIG.update({
+            f"{elem}_x180_I_wf": {"type": "arbitrary", "samples": (SQ_gaussian*amp).tolist()},
+            f"{elem}_x180_Q_wf": {"type": "arbitrary", "samples": (SQ_gaus_der*amp).tolist()},
+            f"{elem}_x90_I_wf": {"type": "arbitrary", "samples": (SQ_gaussian*amp/2).tolist()},
+            f"{elem}_x90_Q_wf": {"type": "arbitrary", "samples": (SQ_gaus_der*amp/2).tolist()},
+            f"{elem}_minus_x90_I_wf": {"type": "arbitrary", "samples": (-SQ_gaussian*amp/2).tolist()},
+            f"{elem}_minus_x90_Q_wf": {"type": "arbitrary", "samples": (-SQ_gaus_der*amp/2).tolist()},
+
+            f"{elem}_y180_I_wf": {"type": "arbitrary", "samples": (-SQ_gaus_der*amp).tolist()},
+            f"{elem}_y180_Q_wf": {"type": "arbitrary", "samples": (SQ_gaussian*amp).tolist()},
+            f"{elem}_y90_I_wf": {"type": "arbitrary", "samples": (-SQ_gaus_der*amp/2).tolist()},
+            f"{elem}_y90_Q_wf": {"type": "arbitrary", "samples": (SQ_gaussian*amp/2).tolist()},
+            f"{elem}_minus_y90_I_wf": {"type": "arbitrary", "samples": (SQ_gaus_der*amp/2).tolist()},
+            f"{elem}_minus_y90_Q_wf": {"type": "arbitrary", "samples": (-SQ_gaussian*amp/2).tolist()},
+        })
+
     WAVEFORMS_CONFIG.update({
         f"readout_wf_{id}": {"type": "constant", "sample": element_conn[id].readout_amplitude} for id in elements_to_run
     })
@@ -167,6 +179,14 @@ def generate_config(
                 "waveforms": {
                     "I": "const_wf",
                     "Q": "zero_wf",
+                },
+            },
+            "gauss_pulse":{
+                "operation": "control",
+                "length": SQ_PULSE_LEN,
+                "waveforms": {
+                    "I": "gauss_I_wf",
+                    "Q": "gauss_Q_wf",
                 },
             },
             "const_flux_pulse": {
@@ -196,63 +216,7 @@ def generate_config(
                     "I": "pi_half_wf",
                     "Q": "zero_wf",
                 },
-            },
-            "x90_pulse": {
-                "operation": "control",
-                "length": SQ_PULSE_LEN,
-                "waveforms": {
-                    "I": "x90_I_wf",
-                    "Q": "x90_Q_wf",
-                },
-            },
-            "gauss_pulse":{
-                "operation": "control",
-                "length": SQ_PULSE_LEN,
-                "waveforms": {
-                    "I": "gauss_I_wf",
-                    "Q": "gauss_Q_wf",
-                },
-            },
-            "x180_pulse": {
-                "operation": "control",
-                "length": SQ_PULSE_LEN,
-                "waveforms": {
-                    "I": "x180_I_wf",
-                    "Q": "x180_Q_wf",
-                },
-            },
-            "-x90_pulse": {
-                "operation": "control",
-                "length": SQ_PULSE_LEN,
-                "waveforms": {
-                    "I": "minus_x90_I_wf",
-                    "Q": "minus_x90_Q_wf",
-                },
-            },
-            "y90_pulse": {
-                "operation": "control",
-                "length": SQ_PULSE_LEN,
-                "waveforms": {
-                    "I": "y90_I_wf",
-                    "Q": "y90_Q_wf",
-                },
-            },
-            "y180_pulse": {
-                "operation": "control",
-                "length": SQ_PULSE_LEN,
-                "waveforms": {
-                    "I": "y180_I_wf",
-                    "Q": "y180_Q_wf",
-                },
-            },
-            "-y90_pulse": {
-                "operation": "control",
-                "length": SQ_PULSE_LEN,
-                "waveforms": {
-                    "I": "minus_y90_I_wf",
-                    "Q": "minus_y90_Q_wf",
-                },
-            },
+            }
         },
         "integration_weights": {},
         "waveforms": WAVEFORMS_CONFIG,
@@ -260,6 +224,58 @@ def generate_config(
             "ON": {"samples": [(1, 0)]},
         },
     }
+
+    for element in elements_to_run:
+        config["pulses"].update({
+            f"{element}_x90_pulse": {
+                "operation": "control",
+                "length": SQ_PULSE_LEN,
+                "waveforms": {
+                    "I": f"{element}_x90_I_wf",
+                    "Q": f"{element}_x90_Q_wf",
+                },
+            },
+            f"{element}_x180_pulse": {
+                "operation": "control",
+                "length": SQ_PULSE_LEN,
+                "waveforms": {
+                    "I": f"{element}_x180_I_wf",
+                    "Q": f"{element}_x180_Q_wf",
+                },
+            },
+            f"{element}_-x90_pulse": {
+                "operation": "control",
+                "length": SQ_PULSE_LEN,
+                "waveforms": {
+                    "I": f"{element}_minus_x90_I_wf",
+                    "Q": f"{element}_minus_x90_Q_wf",
+                },
+            },
+            f"{element}_y90_pulse": {
+                "operation": "control",
+                "length": SQ_PULSE_LEN,
+                "waveforms": {
+                    "I": f"{element}_y90_I_wf",
+                    "Q": f"{element}_y90_Q_wf",
+                },
+            },
+            f"{element}_y180_pulse": {
+                "operation": "control",
+                "length": SQ_PULSE_LEN,
+                "waveforms": {
+                    "I": f"{element}_y180_I_wf",
+                    "Q": f"{element}_y180_Q_wf",
+                },
+            },
+            f"{element}_-y90_pulse": {
+                "operation": "control",
+                "length": SQ_PULSE_LEN,
+                "waveforms": {
+                    "I": f"{element}_minus_y90_I_wf",
+                    "Q": f"{element}_minus_y90_Q_wf",
+                },
+            },
+        })
 
     for element in elements_to_run:
         config["pulses"].update({

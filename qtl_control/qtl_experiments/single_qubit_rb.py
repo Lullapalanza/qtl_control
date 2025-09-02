@@ -199,6 +199,7 @@ class SingleQubitRB(QTLQMExperiment):
                     align(f"drive_{element}", f"resonator_{element}")
                     with strict_timing_():
                         play_sequence(depth_seqs, seqs_ind[i], depths[i], f"drive_{element}", self.station.config[element].X180_amplitude)
+                        wait(100, f"drive_{element}") # 400ns
                     align(f"drive_{element}", f"resonator_{element}")
                     standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
                     save(n, n_stream)
