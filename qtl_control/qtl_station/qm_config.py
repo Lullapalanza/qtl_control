@@ -120,7 +120,7 @@ def generate_config(
         )
     )
 
-    X180_amplitude = 1
+    X180_amplitude = 0.1473
     WAVEFORMS_CONFIG = {
         "const_wf": {"type": "constant", "sample": CONST_AMP},
         "saturation_drive_wf": {"type": "constant", "sample": SATURATION_AMP},

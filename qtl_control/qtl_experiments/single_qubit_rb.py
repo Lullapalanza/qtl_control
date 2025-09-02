@@ -96,72 +96,72 @@ def play_sequence(sequence_list, start, N, element, pi_amplitude):
             with case_(0):
                 wait(100//4, element)
             with case_(1):
-                play("x180" * amp(pi_amplitude), element)
+                play("x180", element)
             with case_(2):
-                play("y180" * amp(pi_amplitude), element)
+                play("y180", element)
             with case_(3):
-                play("y180" * amp(pi_amplitude), element)
-                play("x180" * amp(pi_amplitude), element)
+                play("y180", element)
+                play("x180", element)
             with case_(4):
-                play("x90" * amp(pi_amplitude), element)
-                play("y90" * amp(pi_amplitude), element)
+                play("x90", element)
+                play("y90", element)
             with case_(5):
-                play("x90" * amp(pi_amplitude), element)
-                play("-y90" * amp(pi_amplitude), element)
+                play("x90", element)
+                play("-y90", element)
             with case_(6):
-                play("-x90" * amp(pi_amplitude), element)
-                play("y90" * amp(pi_amplitude), element)
+                play("-x90", element)
+                play("y90", element)
             with case_(7):
-                play("-x90" * amp(pi_amplitude), element)
-                play("-y90" * amp(pi_amplitude), element)
+                play("-x90", element)
+                play("-y90", element)
             with case_(8):
-                play("y90" * amp(pi_amplitude), element)
-                play("x90" * amp(pi_amplitude), element)
+                play("y90", element)
+                play("x90", element)
             with case_(9):
-                play("y90" * amp(pi_amplitude), element)
-                play("-x90" * amp(pi_amplitude), element)
+                play("y90", element)
+                play("-x90", element)
             with case_(10):
-                play("-y90" * amp(pi_amplitude), element)
-                play("x90" * amp(pi_amplitude), element)
+                play("-y90", element)
+                play("x90", element)
             with case_(11):
-                play("-y90" * amp(pi_amplitude), element)
-                play("-x90" * amp(pi_amplitude), element)
+                play("-y90", element)
+                play("-x90", element)
             with case_(12):
-                play("x90" * amp(pi_amplitude), element)
+                play("x90", element)
             with case_(13):
-                play("-x90" * amp(pi_amplitude), element)
+                play("-x90", element)
             with case_(14):
-                play("y90" * amp(pi_amplitude), element)
+                play("y90", element)
             with case_(15):
-                play("-y90" * amp(pi_amplitude), element)
+                play("-y90", element)
             with case_(16):
-                play("-x90" * amp(pi_amplitude), element)
-                play("y90" * amp(pi_amplitude), element)
-                play("x90" * amp(pi_amplitude), element)
+                play("-x90", element)
+                play("y90", element)
+                play("x90", element)
             with case_(17):
-                play("-x90" * amp(pi_amplitude), element)
-                play("-y90" * amp(pi_amplitude), element)
-                play("x90" * amp(pi_amplitude), element)
+                play("-x90", element)
+                play("-y90", element)
+                play("x90", element)
             with case_(18):
-                play("x180" * amp(pi_amplitude), element)
-                play("y90" * amp(pi_amplitude), element)
+                play("x180", element)
+                play("y90", element)
             with case_(19):
-                play("x180" * amp(pi_amplitude), element)
-                play("-y90" * amp(pi_amplitude), element)
+                play("x180", element)
+                play("-y90", element)
             with case_(20):
-                play("y180" * amp(pi_amplitude), element)
-                play("x90" * amp(pi_amplitude), element)
+                play("y180", element)
+                play("x90", element)
             with case_(21):
-                play("y180" * amp(pi_amplitude), element)
-                play("-x90" * amp(pi_amplitude), element)
+                play("y180", element)
+                play("-x90", element)
             with case_(22):
-                play("x90" * amp(pi_amplitude), element)
-                play("y90" * amp(pi_amplitude), element)
-                play("x90" * amp(pi_amplitude), element)
+                play("x90", element)
+                play("y90", element)
+                play("x90", element)
             with case_(23):
-                play("-x90" * amp(pi_amplitude), element)
-                play("y90" * amp(pi_amplitude), element)
-                play("-x90" * amp(pi_amplitude), element)
+                play("-x90", element)
+                play("y90", element)
+                play("-x90", element)
 
 
 class SingleQubitRB(QTLQMExperiment):
