@@ -111,7 +111,7 @@ def generate_config(
     FLUX_AMP = 0.45
 
     GDRAG_SIGMA = SQ_PULSE_LEN / 4
-    GDRAG_COEFF = 10
+    GDRAG_COEFF = 1
     GDRAG_ALPHA = -200 * u.MHz
     GDRAG_STARK = 0
     

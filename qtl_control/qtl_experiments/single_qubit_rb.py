@@ -176,7 +176,6 @@ class SingleQubitRB(QTLQMExperiment):
         depth_sequencies = []
         for d in depth_sweep:
             seq = generate_sequence_for_depth(d)
-            print(seq)
             depth_sequencies += seq
 
         seq_indexes = [0] + [sum(depth_sweep[:_]) for _ in range(1, len(depth_sweep))]

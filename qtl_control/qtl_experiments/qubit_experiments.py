@@ -601,7 +601,7 @@ class ErrorRabi(QTLQMExperiment):
                     with for_(*from_array(n_pulse, nr_of_puless)):
                         # Play pulses
                         with for_(i, 0, i < n_pulse, i + 1):
-                            play("x180" * amp(var_amp), f"{element}_drive")
+                            play(f"{element}_x180" * amp(var_amp), f"drive_{element}")
                         wait(400 * u.ns, f"drive_{element}")
                         align(f"drive_{element}", f"resonator_{element}")
                         standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
@@ -618,6 +618,53 @@ class ErrorRabi(QTLQMExperiment):
 
 class DragCalibration(QTLQMExperiment):
     experiment_name = "QM-DragCalibration"
+
+    def sweep_labels(self):
+        return [("coef", ""), ("seq_id", "")]
+    
+    def get_program(self, element, Navg, sweeps, wait_after=100000):
+        coefs = sweeps[0]
+        # seq_ids = sweeps[1]
+        
+        with program() as drag:
+            I = declare(fixed)
+            Q = declare(fixed)
+            n = declare(int)
+
+            I_stream = declare_stream()
+            Q_stream = declare_stream()
+            n_stream = declare_stream()
+
+            var_amp = declare(fixed)
+
+            with for_(n, 0, n < Navg, n + 1):
+                with for_(*from_array(var_amp, coefs)):
+                    play(f"{element}_x180" * amp(1, 0, 0, var_amp), f"drive_{element}")
+                    play(f"{element}_y90" * amp(var_amp, 0, 0, 1), f"drive_{element}")
+                    wait(400 * u.ns, f"drive_{element}")
+                    align(f"drive_{element}", f"resonator_{element}")
+                    standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
+                    
+                    align()
+                    play(f"{element}_y180" * amp(var_amp, 0, 0, 1), f"drive_{element}")
+                    play(f"{element}_x90" * amp(1, 0, 0, var_amp), f"drive_{element}")
+                    wait(400 * u.ns, f"drive_{element}")
+                    align(f"drive_{element}", f"resonator_{element}")
+                    standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
+                save(n, n_stream)
+
+            with stream_processing():
+                # Cast the data into a 2D matrix, average the 2D matrices together and store the results on the OPX processor
+                I_stream.buffer(2).buffer(len(coefs)).average().save("I")
+                Q_stream.buffer(2).buffer(len(coefs)).average().save("Q")
+                n_stream.save("iteration")
+
+        return drag
+                        
+
+
+class DragCalibrationErrorAmp(QTLQMExperiment):
+    experiment_name = "QM-DragCalibrationErrorAmp"
 
     def sweep_labels(self):
         return [("coef", ""), ("nr_of_pulses", "")]
@@ -643,8 +690,8 @@ class DragCalibration(QTLQMExperiment):
                     with for_(*from_array(n_pulse, nr_of_puless)):
                         # Play pulses
                         with for_(i, 0, i < n_pulse, i + 1):
-                            play("x180" * amp(1, 0, 0, var_amp), f"{element}_drive")
-                            play("x180" * amp(-1, 0, 0, var_amp), f"{element}_drive")
+                            play(f"{element}_x180" * amp(1, 0, 0, var_amp), f"drive_{element}")
+                            play(f"{element}_x180" * amp(-1, 0, 0, -var_amp), f"drive_{element}")
                         wait(400 * u.ns, f"drive_{element}")
                         align(f"drive_{element}", f"resonator_{element}")
                         standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
