@@ -574,6 +574,91 @@ class ReadoutOptimization(QTLQMExperiment):
         fid_ds.plot(ax=ax, x="frequency")
 
 
+class ErrorRabi(QTLQMExperiment):
+    experiment_name = "QM-ErrorRabi"
+
+    def sweep_labels(self):
+        return [("amplitude", ""), ("nr_of_pulses", "")]
+    
+    def get_program(self, element, Navg, sweeps, wait_after=100000):
+        amplitudes = sweeps[0]
+        nr_of_puless = sweeps[1]
+
+        with program() as error_rabi:
+            I = declare(fixed)
+            Q = declare(fixed)
+            n = declare(int)
+
+            I_stream = declare_stream()
+            Q_stream = declare_stream()
+            n_stream = declare_stream()
+
+            var_amp = declare(fixed)
+            n_pulse = declare(int)
+            i = declare(int)
+            with for_(n, 0, n < Navg, n + 1):
+                with for_(*from_array(var_amp, amplitudes)):
+                    with for_(*from_array(n_pulse, nr_of_puless)):
+                        # Play pulses
+                        with for_(i, 0, i < n_pulse, i + 1):
+                            play("x180" * amp(var_amp), f"{element}_drive")
+                        wait(400 * u.ns, f"drive_{element}")
+                        align(f"drive_{element}", f"resonator_{element}")
+                        standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
+                save(n, n_stream)
+
+            with stream_processing():
+                # Cast the data into a 2D matrix, average the 2D matrices together and store the results on the OPX processor
+                I_stream.buffer(len(nr_of_puless)).buffer(len(amplitudes)).average().save("I")
+                Q_stream.buffer(len(nr_of_puless)).buffer(len(amplitudes)).average().save("Q")
+                n_stream.save("iteration")
+
+        return error_rabi
+
+
+class DragCalibration(QTLQMExperiment):
+    experiment_name = "QM-DragCalibration"
+
+    def sweep_labels(self):
+        return [("coef", ""), ("nr_of_pulses", "")]
+    
+    def get_program(self, element, Navg, sweeps, wait_after=100000):
+        amplitudes = sweeps[0]
+        nr_of_puless = sweeps[1]
+
+        with program() as error_rabi:
+            I = declare(fixed)
+            Q = declare(fixed)
+            n = declare(int)
+
+            I_stream = declare_stream()
+            Q_stream = declare_stream()
+            n_stream = declare_stream()
+
+            var_amp = declare(fixed)
+            n_pulse = declare(int)
+            i = declare(int)
+            with for_(n, 0, n < Navg, n + 1):
+                with for_(*from_array(var_amp, amplitudes)):
+                    with for_(*from_array(n_pulse, nr_of_puless)):
+                        # Play pulses
+                        with for_(i, 0, i < n_pulse, i + 1):
+                            play("x180" * amp(1, 0, 0, var_amp), f"{element}_drive")
+                            play("x180" * amp(-1, 0, 0, var_amp), f"{element}_drive")
+                        wait(400 * u.ns, f"drive_{element}")
+                        align(f"drive_{element}", f"resonator_{element}")
+                        standard_readout(f"resonator_{element}", I, I_stream, Q, Q_stream, wait_after)
+                save(n, n_stream)
+
+            with stream_processing():
+                # Cast the data into a 2D matrix, average the 2D matrices together and store the results on the OPX processor
+                I_stream.buffer(len(nr_of_puless)).buffer(len(amplitudes)).average().save("I")
+                Q_stream.buffer(len(nr_of_puless)).buffer(len(amplitudes)).average().save("Q")
+                n_stream.save("iteration")
+
+        return error_rabi
+
+
 class AllXY(QTLQMExperiment):
     experiment_name = "QM-AllXY"
 

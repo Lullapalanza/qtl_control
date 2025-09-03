@@ -8,6 +8,8 @@ from .qubit_experiments import (
     T1,
     SingleShotReadout,
     ReadoutOptimization,
+    ErrorRabi,
+    DragCalibration,
     AllXY
 )
 from .resonator_experiments import (
@@ -27,6 +29,8 @@ experiments_dict = {
         T1,
         SingleShotReadout,
         ReadoutOptimization,
+        ErrorRabi,
+        DragCalibration,
         AllXY
     ] + [
         ReadoutResonatorSpectroscopy,
