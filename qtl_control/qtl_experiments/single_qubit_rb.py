@@ -95,7 +95,7 @@ def play_sequence(sequence_list, start, N, element):
     with for_(i, start, i < N + start, i+1):
         with switch_(sequence_list[i], unsafe=True):
             with case_(0):
-                wait(100//4, f"drive_{element}")
+                play(f"{element}_idle", f"drive_{element}")
             with case_(1):
                 play(f"{element}_x180", f"drive_{element}")
             with case_(2):

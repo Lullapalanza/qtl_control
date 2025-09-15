@@ -1,4 +1,4 @@
-from qtl_control.qtl_station.station import change_station
+from qtl_control.qtl_station.station import StationSettingsChanger
 
 def test_config_load(station):
     station.reload_config(["Q7"])
@@ -12,13 +12,13 @@ def test_config_load(station):
 def test_change_context(station):
     station.reload_config(["Q7"])
     assert station.config["Q7"].frequency == 5.8e9
-    with change_station(station):
+    with StationSettingsChanger(station):
         station.config["Q7"].frequency = 5.9e9
     assert station.config["Q7"].frequency == 5.9e9
 
 
 def test_qm_config(station):
-    with change_station(station):
+    with StationSettingsChanger(station):
         station.config["Q7"].X180_amplitude = 0.999
     station.reload_config(["Q7", "Q4"])
     assert station.config["Q7"].X180_amplitude == 0.999

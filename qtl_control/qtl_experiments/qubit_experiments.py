@@ -15,7 +15,6 @@ from qtl_control.qtl_station import ReadoutDisc
 from qtl_control.qtl_experiments.utils import standard_readout, format_res
 
 
-
 class QubitSpectroscopy(QTLQMExperiment):
     experiment_name = "QM-QubitSpectroscopy"
 
@@ -117,7 +116,10 @@ class Rabi(QTLQMExperiment):
     def sweep_labels(self):
         return [("amplitude", "arb"), ]
 
-    def get_program(self, element, Navg, sweeps, pulse_duration=100, wait_after=50000):
+    def get_program(self, element, Navg, sweeps, wait_after=50000):
+        with self.station.change_settings():
+            self.station.config[element].X180_amplitude = 1
+        
         amp_range = sweeps[0]
         # === START QM program ===
         with program() as rabi:
@@ -134,7 +136,7 @@ class Rabi(QTLQMExperiment):
                 with for_(*from_array(a, amp_range)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
                     # Play the qubit pulse with a variable amplitude (pre-factor to the pulse amplitude defined in the config)
                     
-                    play("gauss" * amp(a), f"drive_{element}")#, duration=pulse_duration * u.ns)
+                    play(f"{element}_x180" * amp(a, 0, 0, a), f"drive_{element}")
                     # play("gauss" * amp(a), element)
                     
                     # Align the two elements to measure after playing the qubit pulse.
@@ -202,7 +204,7 @@ class Rabi(QTLQMExperiment):
         return {
             data.attrs["element"]: {
                 "X180_amplitude": rabi_f,
-                "X180_duration": json.loads(data.attrs["run_kwargs"])["pulse_duration"],
+                # "X180_duration": json.loads(data.attrs["run_kwargs"])["pulse_duration"],
                 "readout_discriminator": ReadoutDisc(g_state_readout, np.conjugate(e_state_readout)/np.abs(e_state_readout)**2)
             }
         }
@@ -333,7 +335,7 @@ class Ramsey2F(QTLQMExperiment):
                 maxfev=5000
             )
             ax.plot(_data["time"], exp_sine(_data["time"], *res), label=format_res(
-                ["Frequency (Hz)", "T2 (ns)"], [res[0], res[2]]
+                ["Frequency (Hz)", "T2 (s)"], [res[0], res[2]]
             ))
             detunes.append(res[0])
 
@@ -414,7 +416,7 @@ class T1(QTLQMExperiment):
 
         data["e_state"].plot.scatter(ax=ax, x="time")
         ax.plot(data.coords["time"], t1(data.coords["time"], *res), label=format_res(
-            ["T1 (ns)"], [res[0]]
+            ["T1 (s)"], [res[0]]
         ))
         ax.legend()
 
@@ -490,7 +492,10 @@ class ReadoutOptimization(QTLQMExperiment):
 
     def sweep_labels(self):
         return [("iteration", ""), ("frequency", "Hz"), ("amplitude", ""), ("state", "")]
-        
+    
+    def hidden_sweeps(self, **kwargs):
+        return {0: np.arange(0, kwargs["Navg"], 1), 3: ["ground", "excited"]}
+
     def get_program(self, element, Navg, sweeps, wait_after=100000):
         self.station.single_shot = True
         sweep_ro_frequency = sweeps[1] - self.station.pl_config["PL"].LO_frequency
@@ -581,7 +586,8 @@ class ErrorRabi(QTLQMExperiment):
         return [("amplitude", ""), ("nr_of_pulses", "")]
     
     def get_program(self, element, Navg, sweeps, wait_after=100000):
-        amplitudes = sweeps[0]
+        current_amp = self.station.config[element].X180_amplitude
+        amplitudes = sweeps[0] / current_amp
         nr_of_puless = sweeps[1]
 
         with program() as error_rabi:
@@ -623,6 +629,10 @@ class DragCalibration(QTLQMExperiment):
         return [("coef", ""), ("seq_id", "")]
     
     def get_program(self, element, Navg, sweeps, wait_after=100000):
+        current_coef = self.station.config[element].drag_coef
+        with self.station.change_settings():
+            self.station.config[element].drag_coef = 1
+
         coefs = sweeps[0]
         # seq_ids = sweeps[1]
         
@@ -712,6 +722,9 @@ class AllXY(QTLQMExperiment):
     def sweep_labels(self):
         return [("gate", "")]
     
+    def hidden_sweeps(self):
+        return {0: np.arange(0, 21, 1)}
+    
     def get_program(self, element, Navg, sweeps, wait_after=100000):
         gate_indexes = sweeps[0]
 
@@ -730,8 +743,8 @@ class AllXY(QTLQMExperiment):
                 with for_(i, 0, i < len(gate_indexes), i+1):
                     with switch_(i):
                         with case_(0):
-                            wait(100//4, f"drive_{element}")
-                            wait(100//4, f"drive_{element}")
+                            play(f"{element}_idle", f"drive_{element}")
+                            play(f"{element}_idle", f"drive_{element}")
                         with case_(1):
                             play(f"{element}_x180", f"drive_{element}")
                             play(f"{element}_x180", f"drive_{element}")

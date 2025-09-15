@@ -199,8 +199,10 @@ class QTLStation:
 
         return S
 
+    def change_settings(self):
+        return StationSettingsChanger(self)
 
-class change_station:
+class StationSettingsChanger:
     def __init__(self, station):
         self.station = station
 

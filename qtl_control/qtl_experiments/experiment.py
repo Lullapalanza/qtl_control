@@ -68,7 +68,20 @@ class QTLQMExperiment:
     station = None
     readout_type = ReadoutType.average # default
 
+    def hidden_sweeps(self):
+        return dict()
+
     def run(self, element, sweeps=None, Navg=1024, autosave=True, **kwargs):
+        sweeps = sweeps or []
+        for index, sweep in self.hidden_sweeps(Navg=Navg, **kwargs).items():
+            sweeps.insert(index, sweep)
+        
+        if len(sweeps) != len(self.sweep_labels()):
+            print("Warning: Missing some sweeps for run call")
+            print("All sweeps:", self.sweep_labels())
+            print("Hidden sweeps:", self.hidden_sweeps(Navg=Navg, **kwargs))
+            return
+
         program = self.get_program(element, Navg, sweeps, **kwargs)
         results = self.station.execute(element, program, Navg, readout_type=self.readout_type)
 

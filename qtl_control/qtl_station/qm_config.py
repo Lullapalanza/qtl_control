@@ -64,6 +64,7 @@ def generate_config(
 
     for element in elements_to_run:
         OPERATIONS_PER_ELEMENT.update({element: {
+            f"{element}_idle": f"{element}_idle_pulse",
             f"{element}_x90": f"{element}_x90_pulse",
             f"{element}_x180": f"{element}_x180_pulse",
             f"{element}_-x90": f"{element}_-x90_pulse",
@@ -103,28 +104,27 @@ def generate_config(
     CONST_LEN = 100 # X180_duration
     CONST_FLUX_LEN = 100 # X180_duration
     SATURATION_LEN = 1000
-    SQ_PULSE_LEN = 100 # X180_duration
+    # SQ_PULSE_LEN = 100 # X180_duration
 
     CONST_AMP = 0.45
     SATURATION_AMP = 0.45
     PI_AMP = 0.45
     FLUX_AMP = 0.45
 
-    GDRAG_SIGMA = SQ_PULSE_LEN / 4
-    GDRAG_COEFF = 1
-    GDRAG_ALPHA = -200 * u.MHz
-    GDRAG_STARK = 0
-    
-    SQ_gaussian, SQ_gaus_der = np.array(
-        drag_gaussian_pulse_waveforms(
-            0.5,
-            SQ_PULSE_LEN,
-            GDRAG_SIGMA,
-            GDRAG_COEFF,
-            GDRAG_ALPHA,
-            GDRAG_STARK
-        )
-    )
+    def get_gauss_wfs(SQ_PULSE_LEN):
+        GDRAG_SIGMA = SQ_PULSE_LEN / 4
+        SQ_gaussian = 0.5 * np.exp(-np.linspace(-SQ_PULSE_LEN//2, SQ_PULSE_LEN//2, SQ_PULSE_LEN)**2/(2*GDRAG_SIGMA**2))
+        SQ_gaus_der = -np.linspace(-SQ_PULSE_LEN//2, SQ_PULSE_LEN//2, SQ_PULSE_LEN)/(2*GDRAG_SIGMA) * SQ_gaussian
+
+        return SQ_gaussian, SQ_gaus_der
+
+    pulse_lens_wfs = {
+        elem: (element_conn[elem].X180_duration, *get_gauss_wfs(element_conn[elem].X180_duration)) for elem in elements_to_run
+    }
+    SQ_gaussian = 0.5 * np.exp(-np.linspace(-100//2, 100//2, 100)**2/(2*25**2))
+    SQ_gaus_der = -np.linspace(-100//2, 100//2, 100)/(2*25) * SQ_gaussian
+
+
 
     # X180_amplitude = 0.1473
     WAVEFORMS_CONFIG = {
@@ -141,7 +141,11 @@ def generate_config(
     for elem in elements_to_run:
         amp = element_conn[elem].X180_amplitude
         drag_amp = element_conn[elem].drag_coef
+        SQ_gaussian = pulse_lens_wfs[elem][1]
+        SQ_gaus_der = pulse_lens_wfs[elem][2]
+
         WAVEFORMS_CONFIG.update({
+            f"{elem}_idle_wf": {"type": "arbitrary", "samples": np.zeros(pulse_lens_wfs[elem][0]).tolist()},
             f"{elem}_x180_I_wf": {"type": "arbitrary", "samples": (SQ_gaussian*amp).tolist()},
             f"{elem}_x180_Q_wf": {"type": "arbitrary", "samples": (SQ_gaus_der*amp*drag_amp).tolist()},
             f"{elem}_x90_I_wf": {"type": "arbitrary", "samples": (SQ_gaussian*amp/2).tolist()},
@@ -184,7 +188,7 @@ def generate_config(
             },
             "gauss_pulse":{
                 "operation": "control",
-                "length": SQ_PULSE_LEN,
+                "length": 100,
                 "waveforms": {
                     "I": "gauss_I_wf",
                     "Q": "gauss_Q_wf",
@@ -204,7 +208,7 @@ def generate_config(
             },
             "pi_pulse": {
                 "operation": "control",
-                "length": SQ_PULSE_LEN,
+                "length": 100,
                 "waveforms": {
                     "I": "pi_wf",
                     "Q": "pi_wf",
@@ -212,7 +216,7 @@ def generate_config(
             },
             "pi_half_pulse": {
                 "operation": "control",
-                "length": SQ_PULSE_LEN,
+                "length": 100,
                 "waveforms": {
                     "I": "pi_half_wf",
                     "Q": "zero_wf",
@@ -227,7 +231,16 @@ def generate_config(
     }
 
     for element in elements_to_run:
+        SQ_PULSE_LEN = pulse_lens_wfs[elem][0]
         config["pulses"].update({
+            f"{element}_idle_pulse": {
+                "operation": "control",
+                "length": SQ_PULSE_LEN,
+                "waveforms": {
+                    "I": f"{element}_idle_wf",
+                    "Q": f"{element}_idle_wf",
+                },
+            },
             f"{element}_x90_pulse": {
                 "operation": "control",
                 "length": SQ_PULSE_LEN,

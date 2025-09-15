@@ -225,9 +225,9 @@ class DispersiveShift(QTLQMExperiment):
                     with for_(*from_array(op, sweep_state)):  # QUA for_ loop for sweeping the pulse amplitude pre-factor
                 # Measure the state of the resonator
                         with if_(op==1):
-                            play(f"{element}_x180", element)
-                            wait(400 * u.ns, element)
-                        align(element, f"resonator_{element}")
+                            play(f"{element}_x180", f"drive_{element}")
+                            wait(400 * u.ns, f"drive_{element}")
+                        align(f"drive_{element}", f"resonator_{element}")
                     # Measure the resonator (send a readout pulse and demodulate the signals to get the 'I' & 'Q' quadratures)
                         standard_readout(f"resonator_{element}", I, I_st, Q, Q_st, wait_after)
                 # Save the averaging iteration to get the progress bar
