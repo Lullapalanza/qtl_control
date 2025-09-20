@@ -68,7 +68,7 @@ class QTLQMExperiment:
     station = None
     readout_type = ReadoutType.average # default
 
-    def hidden_sweeps(self):
+    def hidden_sweeps(self, **kwargs):
         return dict()
 
     def run(self, element, sweeps=None, Navg=1024, autosave=True, **kwargs):

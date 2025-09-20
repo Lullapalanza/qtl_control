@@ -84,7 +84,7 @@ class FluxQubitSpectrsocopy(QTLQMExperiment):
 
             with for_(n, 0, n < Navg, n + 1):
                 with for_(*from_array(a, amp_sweep)):  # QUA for_ loop for sweeping the frequency
-                    set_dc_offset(f"flux_line_{element}", "single", a)
+                    set_dc_offset(f"flux_{element}", "single", a)
                     with for_(*from_array(df, dfs)):
                         # Update the frequency of the digital oscillator linked to the qubit element
                         update_frequency(f"drive_{element}", df)
@@ -355,7 +355,7 @@ class T1(QTLQMExperiment):
     experiment_name = "QM-T1"
 
     def sweep_labels(self):
-        return [("time", "s"), ]
+        return [("time", "ns"), ]
 
     def get_program(self, element, Navg, sweeps, wait_after=50000):
         delay_sweep = sweeps[0]//4
@@ -722,7 +722,7 @@ class AllXY(QTLQMExperiment):
     def sweep_labels(self):
         return [("gate", "")]
     
-    def hidden_sweeps(self):
+    def hidden_sweeps(self, **kwargs):
         return {0: np.arange(0, 21, 1)}
     
     def get_program(self, element, Navg, sweeps, wait_after=100000):
