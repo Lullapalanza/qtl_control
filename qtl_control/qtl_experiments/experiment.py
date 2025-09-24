@@ -8,6 +8,7 @@ from inspect import signature, _empty
 
 from qtl_control.qtl_experiments.utils import ReadoutType
 
+
 class ExperimentResult:
     def __init__(self, data, experiment, existing_id=None):
         self.data = data
@@ -17,8 +18,8 @@ class ExperimentResult:
     def analyze(self, **kwargs):
         return self.experiment.analyze_data(self, **kwargs)
 
-    def save(self):
-        self.id = self.db.save_data(self.experiment.experiment_name, self.data, overwrite_id=self.id)
+    def save(self, database):
+        self.id = database.save_dataset(self.experiment.experiment_name, self.data)
         print(f"Saved with ID {self.id}")
 
     def get_title(self):
@@ -65,13 +66,13 @@ class QTLQMExperiment:
     """
     An experiment instance that allows to predefine some operations and experiments
     """
-    station = None
     readout_type = ReadoutType.average # default
 
     def hidden_sweeps(self, **kwargs):
         return dict()
 
-    def run(self, element, sweeps=None, Navg=1024, autosave=True, **kwargs):
+    def run(self, station_connection, element, sweeps=None, Navg=1024, autosave=True, **kwargs):
+        # === CORRECT AND COLLECT SWEEPS ===
         sweeps = sweeps or []
         for index, sweep in self.hidden_sweeps(Navg=Navg, **kwargs).items():
             sweeps.insert(index, sweep)
@@ -81,28 +82,32 @@ class QTLQMExperiment:
             print("All sweeps:", self.sweep_labels())
             print("Hidden sweeps:", self.hidden_sweeps(Navg=Navg, **kwargs))
             return
+        # ===
 
-        program = self.get_program(element, Navg, sweeps, **kwargs)
-        results = self.station.execute(element, program, Navg, readout_type=self.readout_type)
+        # === GET AND EXECUTE PROGRAM ===
+        # current_config = station_connection.station.config.to_json()
+        program = self.get_program(station_connection.station.config, element, Navg, sweeps, **kwargs)
+        results = station_connection.station.execute(element, program, Navg, readout_type=self.readout_type)
+        # ===
 
+        # === DATA SAVING ===
         run_kwargs = {
             k: v.default for k, v in signature(self.get_program).parameters.items() if v.default is not _empty
         } | kwargs
 
         sweep_labels = [sl[0] for sl in self.sweep_labels()]
+        
         ds = xr.Dataset(
             data_vars={"iq": (sweep_labels, results)},
             coords={sweep_label: values for sweep_label, values in zip(sweep_labels, sweeps)},
             attrs={"element": element, "run_kwargs": json.dumps(run_kwargs)}
         )
-
         for label, unit in self.sweep_labels():
             ds[label].attrs["units"] = unit
-
         exp_res = ExperimentResult(ds, self)
 
         if autosave:
-            exp_res.save()
+            exp_res.save(station_connection.db)
 
         return exp_res
     

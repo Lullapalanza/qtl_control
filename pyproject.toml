@@ -21,5 +21,6 @@ dependencies = [
     "matplotlib",
     "xarray",
     "netCDF4",
+    "sqlite3"
 ]
 dynamic = ["version"]

@@ -9,14 +9,15 @@ from qtl_control.qtl_station.station import u
 from qtl_control.qtl_experiments import QTLQMExperiment
 from qtl_control.qtl_experiments.utils import *
 
+
 class ReadoutResonatorSpectroscopy(QTLQMExperiment):
     experiment_name = "QM-ReadoutResonatorSpectroscopy"
 
     def sweep_labels(self):
         return [("readout_frequency", "Hz"), ]
 
-    def get_program(self, element, Navg, sweeps, wait_after=1000):
-        sweep = sweeps[0] - self.station.config["PL"].LO_frequency
+    def get_program(self, current_station_config, element, Navg, sweeps, wait_after=1000):
+        sweep = sweeps[0] - current_station_config["PL"].LO_frequency
         with program() as resonator_spec:
             n = declare(int)  # QUA variable for the averaging loop
             f = declare(int)  # QUA variable for the readout frequency
@@ -72,9 +73,9 @@ class ReadoutFluxSpectroscopy(QTLQMExperiment):
     def sweep_labels(self):
         return [("amplitude", "arb"), ("readout_frequency", "Hz")]
 
-    def get_program(self, element, Navg, sweeps, wait_after=1000):
+    def get_program(self, current_station_config, element, Navg, sweeps, wait_after=1000):
         amp_sweep = sweeps[0]
-        if_sweep = sweeps[1] - self.station.config["PL"].LO_frequency
+        if_sweep = sweeps[1] - current_station_config["PL"].LO_frequency
         with program() as resonator_spec:
             n = declare(int)  # QUA variable for the averaging loop
             f = declare(int)  # QUA variable for the readout frequency
@@ -159,8 +160,8 @@ class PunchOut(QTLQMExperiment):
     def sweep_labels(self):
         return ["readout_frequency", "amplitude"]
 
-    def get_program(self, element, Navg, sweeps, wait_after=1000):
-        freq_sweep = sweeps[0] - self.station.config["PL"].LO_frequency
+    def get_program(self, current_station_config, element, Navg, sweeps, wait_after=1000):
+        freq_sweep = sweeps[0] - current_station_config["PL"].LO_frequency
         amplitude_sweep = sweeps[1]
         with program() as resonator_spec:
             n = declare(int)  # QUA variable for the averaging loop
@@ -206,8 +207,8 @@ class DispersiveShift(QTLQMExperiment):
     def sweep_labels(self):
         return [("readout_frequency", "Hz"), ("state", "")]
 
-    def get_program(self, element, Navg, sweeps, wait_after=10000):
-        sweep = sweeps[0] - self.station.config["PL"].LO_frequency
+    def get_program(self, current_station_config, element, Navg, sweeps, wait_after=10000):
+        sweep = sweeps[0] - current_station_config["PL"].LO_frequency
         sweep_state = [0, 1]
         with program() as resonator_spec:
             n = declare(int)  # QUA variable for the averaging loop

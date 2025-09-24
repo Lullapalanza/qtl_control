@@ -21,9 +21,9 @@ class QubitSpectroscopy(QTLQMExperiment):
     def sweep_labels(self):
         return [("drive_frequency", "Hz"), ]
 
-    def get_program(self, element, Navg, sweeps, sat_amp=0.05, sat_len=10000, wait_after=10000):
+    def get_program(self, current_station_config, element, Navg, sweeps, sat_amp=0.05, sat_len=10000, wait_after=10000):
         saturation_len = sat_len * u.ns  # In ns
-        dfs = sweeps[0] - self.station.config[element].drive.LO_frequency
+        dfs = sweeps[0] - current_station_config[element].drive.LO_frequency
         # === START QM program ===
         with program() as spec_program:
             n = declare(int)
@@ -66,10 +66,10 @@ class FluxQubitSpectrsocopy(QTLQMExperiment):
     def sweep_labels(self):
         return [("amplitude", "arb"), ("drive_frequency", "Hz"), ]
 
-    def get_program(self, element, Navg, sweeps, sat_amp=0.05, wait_after=10000):
+    def get_program(self, current_station_config, element, Navg, sweeps, sat_amp=0.05, wait_after=10000):
         saturation_len = 10 * u.us  # In ns
         amp_sweep = sweeps[0]
-        dfs = sweeps[1] - self.station.config[element].drive.LO_frequency
+        dfs = sweeps[1] - current_station_config[element].drive.LO_frequency
         # === START QM program ===
         with program() as spec_program:
             n = declare(int)
@@ -116,9 +116,10 @@ class Rabi(QTLQMExperiment):
     def sweep_labels(self):
         return [("amplitude", "arb"), ]
 
-    def get_program(self, element, Navg, sweeps, wait_after=50000):
-        with self.station.change_settings():
-            self.station.config[element].X180_amplitude = 1
+    def get_program(self, current_station_config, element, Navg, sweeps, wait_after=50000):
+        ### TODO: FIX ME
+        # with self.station.change_settings():
+        #     current_station_config[element].X180_amplitude = 1
         
         amp_range = sweeps[0]
         # === START QM program ===
@@ -216,7 +217,7 @@ class TimeRabi(QTLQMExperiment):
     def sweep_labels(self):
         return ["duration", ]
 
-    def get_program(self, element, Navg, sweeps, pulse_amplitude=0.1, wait_after=50000):
+    def get_program(self, current_station_config, element, Navg, sweeps, pulse_amplitude=0.1, wait_after=50000):
         duration_sweep = sweeps[0]
         # === START QM program ===
         with program() as rabi_time:
@@ -265,9 +266,9 @@ class Ramsey2F(QTLQMExperiment):
     def sweep_labels(self):
         return [("detuning", "Hz"), ("time", "ns")]
 
-    def get_program(self, element, Navg, sweeps, wait_after=50000):
+    def get_program(self, current_station_config, element, Navg, sweeps, wait_after=50000):
         delay_sweep = sweeps[1]//4
-        qubit_IF = self.station.config[element].frequency - self.station.config[element].drive.LO_frequency
+        qubit_IF = current_station_config[element].frequency - current_station_config[element].drive.LO_frequency
         detuning_sweep = qubit_IF + sweeps[0]
         wait_after = wait_after//4
         # === START QM program ===
@@ -314,7 +315,7 @@ class Ramsey2F(QTLQMExperiment):
     def analyze_data(self, result):
         data = result.data
         element = data.attrs["element"]
-        self.station.config[element].readout_discriminator.discriminate_data(result.data)
+        current_station_config[element].readout_discriminator.discriminate_data(result.data)
 
         def exp_sine(time, detune, p0, tau, e0, e1):
             return e0 + e1 * np.sin(2 * np.pi * detune * time/1e9 + p0) * np.exp(-(time/1e9)/tau)
@@ -343,9 +344,9 @@ class Ramsey2F(QTLQMExperiment):
         ax.legend()
 
         if any([_det > sum(np.abs(data.coords["detuning"])) for _det in detunes]):
-            new_f =  self.station.config[element].frequency + np.sign(data.coords["detuning"][0] - data.coords["detuning"][1]) * sum([np.abs(_det) for _det in detunes]) / 2
+            new_f =  current_station_config[element].frequency + np.sign(data.coords["detuning"][0] - data.coords["detuning"][1]) * sum([np.abs(_det) for _det in detunes]) / 2
         else:
-            new_f = self.station.config[element].frequency + sum([-np.abs(_det) * np.sign(data_detung) for _det, data_detung in zip(detunes, data.coords["detuning"])]) * 0.5
+            new_f = current_station_config[element].frequency + sum([-np.abs(_det) * np.sign(data_detung) for _det, data_detung in zip(detunes, data.coords["detuning"])]) * 0.5
     
         return {element: {"frequency": int(new_f)}}
 
@@ -357,7 +358,7 @@ class T1(QTLQMExperiment):
     def sweep_labels(self):
         return [("time", "ns"), ]
 
-    def get_program(self, element, Navg, sweeps, wait_after=50000):
+    def get_program(self, current_station_config, element, Navg, sweeps, wait_after=50000):
         delay_sweep = sweeps[0]//4
         # === START QM program ===
         with program() as t1_program:
@@ -398,7 +399,7 @@ class T1(QTLQMExperiment):
     
     def analyze_data(self, result):
         data = result.data
-        self.station.config[data.attrs["element"]].readout_discriminator.discriminate_data(data)
+        current_station_config[data.attrs["element"]].readout_discriminator.discriminate_data(data)
 
         fig, ax = plt.subplots(constrained_layout=True)
         fig.suptitle(result.get_title())
@@ -429,7 +430,7 @@ class SingleShotReadout(QTLQMExperiment):
     def sweep_labels(self):
         return [("iteration", ""), ("state", "")]
         
-    def get_program(self, element, Navg, sweeps, wait_after=100000):
+    def get_program(self, current_station_config, element, Navg, sweeps, wait_after=100000):
         self.station.single_shot = True
         sweep = [0, 1]
         with program() as IQ_blobs:
@@ -496,7 +497,7 @@ class ReadoutOptimization(QTLQMExperiment):
     def hidden_sweeps(self, **kwargs):
         return {0: np.arange(0, kwargs["Navg"], 1), 3: ["ground", "excited"]}
 
-    def get_program(self, element, Navg, sweeps, wait_after=100000):
+    def get_program(self, current_station_config, element, Navg, sweeps, wait_after=100000):
         self.station.single_shot = True
         sweep_ro_frequency = sweeps[1] - self.station.pl_config["PL"].LO_frequency
         sweep_amplitude = sweeps[2]
@@ -522,7 +523,7 @@ class ReadoutOptimization(QTLQMExperiment):
                                 wait(400 * u.ns, f"drive_{element}")
                             align(f"drive_{element}", f"resonator_{element}")
                             measure(
-                                "readout" * amp(ro_ampl/self.station.config[element].readout_amplitude),
+                                "readout" * amp(ro_ampl/current_station_config[element].readout_amplitude),
                                 f"resonator_{element}",
                                 None,
                                 dual_demod.full("cos", "sin", I),
@@ -585,8 +586,8 @@ class ErrorRabi(QTLQMExperiment):
     def sweep_labels(self):
         return [("amplitude", ""), ("nr_of_pulses", "")]
     
-    def get_program(self, element, Navg, sweeps, wait_after=100000):
-        current_amp = self.station.config[element].X180_amplitude
+    def get_program(self, current_station_config, element, Navg, sweeps, wait_after=100000):
+        current_amp = current_station_config[element].X180_amplitude
         amplitudes = sweeps[0] / current_amp
         nr_of_puless = sweeps[1]
 
@@ -628,10 +629,10 @@ class DragCalibration(QTLQMExperiment):
     def sweep_labels(self):
         return [("coef", ""), ("seq_id", "")]
     
-    def get_program(self, element, Navg, sweeps, wait_after=100000):
-        current_coef = self.station.config[element].drag_coef
+    def get_program(self, current_station_config, element, Navg, sweeps, wait_after=100000):
+        current_coef = current_station_config[element].drag_coef
         with self.station.change_settings():
-            self.station.config[element].drag_coef = 1
+            current_station_config[element].drag_coef = 1
 
         coefs = sweeps[0]
         # seq_ids = sweeps[1]
@@ -679,7 +680,7 @@ class DragCalibrationErrorAmp(QTLQMExperiment):
     def sweep_labels(self):
         return [("coef", ""), ("nr_of_pulses", "")]
     
-    def get_program(self, element, Navg, sweeps, wait_after=100000):
+    def get_program(self, current_station_config, element, Navg, sweeps, wait_after=100000):
         amplitudes = sweeps[0]
         nr_of_puless = sweeps[1]
 
@@ -725,7 +726,7 @@ class AllXY(QTLQMExperiment):
     def hidden_sweeps(self, **kwargs):
         return {0: np.arange(0, 21, 1)}
     
-    def get_program(self, element, Navg, sweeps, wait_after=100000):
+    def get_program(self, current_station_config, element, Navg, sweeps, wait_after=100000):
         gate_indexes = sweeps[0]
 
         with program() as allxy_prog:

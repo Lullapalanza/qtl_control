@@ -4,34 +4,50 @@ from qtl_control.qtl_experiments.qubit_experiments import *
 from qtl_control.qtl_station.station import MockResHandles
 
 
-def test_readout_spectroscopy(station):
-    rrs = ReadoutResonatorSpectroscopy()
+def test_readout_spectroscopy(station_w_filedb):
+    rrs = ReadoutResonatorSpectroscopy() # Load stuff to define program, analysis and plotting
     
     MockResHandles.mock_data = [
         np.ones(100), np.ones(100), 1024
     ]
-    res = rrs.run("Q7", [np.arange(5e9, 5.1e9, 1e6)])
+
+    res = rrs.run(station_w_filedb, "Q7", [np.arange(5e9, 5.1e9, 1e6)])
+
     print(res.data)
     res.analyze()
 
 
-def test_rabi(station):
+def test_rabi(station_w_filedb):
     rabi = Rabi()
 
     MockResHandles.mock_data = [
         np.ones(10), np.ones(10), 1024
     ]
-    res = rabi.run("Q7", [np.arange(0, 1, 0.1)])
+
+    res = rabi.run(station_w_filedb, "Q7", [np.arange(0, 1, 0.1)])
+    analysis_result = res.analyze()
+
+    res = rabi.run(station_w_filedb, "Q7", [np.arange(0, 1, 0.1)])
+    analysis_result = res.analyze()
+
+
+def test_rel_rabi(station_w_relational_db):
+    rabi = Rabi()
+
+    MockResHandles.mock_data = [
+        np.ones(10), np.ones(10), 1024
+    ]
+    res = rabi.run(station_w_relational_db, "Q7", [np.arange(0, 1, 0.1)])
     analysis_result = res.analyze()
     # assert analysis_result["Q7"]["X180_duration"] == 100
 
-    res = rabi.run("Q7", [np.arange(0, 1, 0.1)])
+    res = rabi.run(station_w_relational_db, "Q7", [np.arange(0, 1, 0.1)])
     analysis_result = res.analyze()
     # assert analysis_result["Q7"]["X180_duration"]== 200
 
 
-def test_run_sweeps(station):
+def test_run_sweeps(station_w_filedb):
     allxy = AllXY()
     MockResHandles.mock_data = [np.ones(21), np.ones(21), 1024]
-    res = allxy.run("Q7")
+    res = allxy.run(station_w_filedb, "Q7")
     

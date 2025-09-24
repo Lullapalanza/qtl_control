@@ -171,7 +171,7 @@ class SingleQubitRB(QTLQMExperiment):
     def sweep_labels(self):
         return [("clifford_depth", ""), ]
 
-    def get_program(self, element, Navg, sweeps, wait_after=50000):
+    def get_program(self, current_station_config, element, Navg, sweeps, wait_after=50000):
         depth_sweep = sweeps[0]
         depth_sequencies = []
         for d in depth_sweep:

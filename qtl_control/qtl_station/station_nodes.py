@@ -8,6 +8,12 @@ class StationNode:
     """
     Node from which the controllers get built from
     """
+    def get_as_dict(self):
+        return {
+            str(field.name): (self[field.name] if not issubclass(type(self[field.name]), StationNode) else self[field.name].get_as_dict())
+            for field in fields(self)
+        }
+
     def get_tree(self, indent=0):
         return "\n".join([
             f"{'\t'*indent}{field.name}: {self[field.name]}" if not issubclass(type(self[field.name]), StationNode)

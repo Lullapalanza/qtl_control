@@ -3,3 +3,4 @@
 .pytest_cache
 qtl_control.egg-info
 tests/test_db
+tests/test_db_relational
