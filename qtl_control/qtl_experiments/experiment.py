@@ -18,8 +18,8 @@ class ExperimentResult:
     def analyze(self, **kwargs):
         return self.experiment.analyze_data(self, **kwargs)
 
-    def save(self, database):
-        self.id = database.save_dataset(self.experiment.experiment_name, self.data)
+    def save(self, database, **kwargs):
+        self.id = database.save_dataset(self.experiment.experiment_name, self.data, **kwargs)
         print(f"Saved with ID {self.id}")
 
     def get_title(self):
@@ -84,8 +84,11 @@ class QTLQMExperiment:
             return
         # ===
 
+        # Config keys to save
+        current_config = station_connection.current_config_id
+        current_change_key = station_connection.config_change_key
+
         # === GET AND EXECUTE PROGRAM ===
-        # current_config = station_connection.station.config.to_json()
         program = self.get_program(station_connection.station.config, element, Navg, sweeps, **kwargs)
         results = station_connection.station.execute(element, program, Navg, readout_type=self.readout_type)
         # ===
@@ -107,7 +110,7 @@ class QTLQMExperiment:
         exp_res = ExperimentResult(ds, self)
 
         if autosave:
-            exp_res.save(station_connection.db)
+            exp_res.save(station_connection.db, config_key=current_config, change_key=current_change_key)
 
         return exp_res
     

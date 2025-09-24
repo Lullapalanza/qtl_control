@@ -145,7 +145,7 @@ class RelationalDB(ExperimentDatabase):
                     self.current_id = existing_id[0]
 
 
-    def save_dataset(self, experiment_name, data) -> int:
+    def save_dataset(self, experiment_name, data, config_key, change_key) -> int:
         # Save xarray dataset as '.nc' and useful data
         
         self.current_id += 1
@@ -156,8 +156,8 @@ class RelationalDB(ExperimentDatabase):
         with sqlite3.connect(self.sqlite_path) as conn:
             cur = conn.cursor()
             cur.execute(
-                "INSERT INTO experiment_results (id, name, dataset_path) VALUES (?, ?, ?)",
-                [self.current_id, experiment_name, f"{self.db_path}/{filename}"]
+                "INSERT INTO experiment_results (id, name, dataset_path, config) VALUES (?, ?, ?, ?)",
+                [self.current_id, experiment_name, f"{self.db_path}/{filename}", change_key]
             )
 
         return save_as_id
@@ -226,7 +226,7 @@ class RelationalDB(ExperimentDatabase):
         with sqlite3.connect(self.sqlite_path) as conn:
             cur = conn.cursor()
             result = cur.execute(
-                "SELECT key_value_json FROM station_config_changes WHERE base_station_config = ? AND PK < ?",
+                "SELECT key_value_json FROM station_config_changes WHERE base_station_config = ? AND PK <= ?",
                 [config_id, checkpoint_key]
             )
             all_changes = result.fetchall()

@@ -21,6 +21,8 @@ class StationConnection:
         elif db_type == "relational":
             self.db = RelationalDB(db_name, db_path, experiment_dict=experiments_dict)
 
+    def print_tree(self):
+        self.station.print_tree()
 
     def load_full_config(self, elements, config_name):
         """
@@ -32,8 +34,8 @@ class StationConnection:
 
     def change_config(self, elements, new_settings=None):
         self.station.reload_config(elements, new_settings)
-        config_change_key = self.db.change_config(self.current_config_id, new_settings)
-        return config_change_key
+        self.config_change_key = self.db.change_config(self.current_config_id, new_settings)
+        return self.config_change_key
     
     def save_config(self, new_config_name):
         current_config = {k: v.get_as_dict() for k, v in self.config.items()}
