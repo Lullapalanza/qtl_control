@@ -29,18 +29,21 @@ class ExperimentResult:
         fig.suptitle(self.get_title())
         plt.tight_layout()
 
-        np.abs(self.data["iq"]).plot(ax=axs[0], y=y_axis)
-        if len(axs[0].collections) == 0:
+        if len(self.data["iq"].dims) == 1:
+            np.abs(self.data["iq"]).plot.scatter(ax=axs[0], y=y_axis)
             axs[0].set_ylabel(r"$Magnitude, \ |S|$ (V)")
-        else:
-            axs[0].collections[-1].colorbar.set_label(r"$Magnitude, \ |S|$ (V)")
-        axs[0].set_xlabel("")
-
-        xr.ufuncs.angle(self.data["iq"]).plot(ax=axs[1], y=y_axis)
-        if len(axs[1].collections) == 0:
+    
+            xr.ufuncs.angle(self.data["iq"]).plot.scatter(ax=axs[1], y=y_axis)
             axs[1].set_ylabel(r"$Phase \ S$ (rad)")
-        else:
+
+        elif len(self.data["iq"].dims) == 2:
+            np.abs(self.data["iq"]).plot(ax=axs[0], y=y_axis)
+            axs[0].collections[-1].colorbar.set_label(r"$Magnitude, \ |S|$ (V)")
+            
+            xr.ufuncs.angle(self.data["iq"]).plot(ax=axs[1], y=y_axis)
             axs[1].collections[-1].colorbar.set_label(r"$Phase \ S$ (rad)")
+
+        axs[0].set_xlabel("")
 
         return axs
 

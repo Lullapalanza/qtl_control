@@ -14,4 +14,4 @@ def start_station(config, db_path, db_name):
     ExperimentResult.db = db
     QTLQMExperiment.station = station
 
-    return station
+    return station, db

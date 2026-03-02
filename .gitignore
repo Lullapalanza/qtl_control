@@ -1,5 +1,6 @@
 *pycache*
 */.ipynb_checkpoints/*
 .pytest_cache
+.build
 qtl_control.egg-info
 tests/test_db
