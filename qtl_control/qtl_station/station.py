@@ -110,13 +110,16 @@ class QTLStation:
         self.elements = []
         self.config = self.pl_config | self.qubit_config
 
+        default_pulses = {}
+
         # Make config
         configuration = generate_config(
             self.elements,
             self.rf_output_channels,
             self.rf_input_channels,
             self.analog_output_channels,
-            self.qubit_config
+            self.qubit_config,
+            default_pulses,
         )
 
         # For debug purposes
@@ -156,13 +159,18 @@ class QTLStation:
                         subtree[k][kk] = vv
                 else:
                     subtree[k] = v
+        
+        pulses = {}
+        for element in elements:
+            pulses[element] = self.config[element].pulses
 
         configuration = generate_config(
             self.elements,
             self.rf_output_channels,
             self.rf_input_channels,
             self.analog_output_channels,
-            self.qubit_config
+            self.qubit_config,
+            pulses
         )
 
         with open("qtl_qm_config.json", "w+") as f:

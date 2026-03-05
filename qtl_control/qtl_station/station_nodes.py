@@ -65,11 +65,12 @@ class ReadoutDisc(StationNode):
 class TransmonQubit(StationNode):
     drive: OctaveRFChannel
     frequency: float = 5.8e9
-    X180_duration: int = 100
-    X180_amplitude: float = 0.5
-    drag_coef: float = 0.0
+    # X180_duration: int = 100
+    # X180_amplitude: float = 0.5
+    # drag_coef: float = 0.0
     flux: Optional[OPXAnalogChannel] = None
     readout_frequency: float = 5.8e9
     readout_amplitude: float = 0.1
     readout_len: int = 2000
     readout_discriminator: Optional[ReadoutDisc] = None
+    pulses: Optional[dict] = None
